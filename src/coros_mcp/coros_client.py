@@ -201,6 +201,10 @@ class CorosClient:
         if self._access_token:
             headers["accessToken"] = self._access_token
 
+        # Add yfheader with userId for all authenticated requests
+        if self._user_info and self._user_info.user_id:
+            headers["yfheader"] = json.dumps({"userId": self._user_info.user_id})
+
         url = f"{self._api_url}/{endpoint}"
 
         if method.upper() == "GET":

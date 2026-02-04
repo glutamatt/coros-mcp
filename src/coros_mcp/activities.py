@@ -7,7 +7,7 @@ Provides tools for querying and managing COROS activities.
 import json
 from datetime import datetime
 
-from mcp.server.fastmcp import Context
+from fastmcp import Context
 
 from coros_mcp.client_factory import get_client
 from coros_mcp.coros_client import FileType

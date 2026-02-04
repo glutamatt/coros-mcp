@@ -6,7 +6,7 @@ Provides login, session management, and common identity tools.
 
 import json
 
-from mcp.server.fastmcp import Context
+from fastmcp import Context
 
 from coros_mcp.coros_platform import coros_login
 from coros_mcp.client_factory import (

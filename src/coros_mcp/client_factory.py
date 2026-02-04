@@ -4,7 +4,7 @@ Client factory for COROS MCP server.
 Provides session-based client management using FastMCP Context.
 """
 
-from mcp.server.fastmcp import Context
+from fastmcp import Context
 
 from coros_mcp.coros_client import CorosClient
 
