@@ -39,7 +39,7 @@ def register_tools(app):
         Returns:
             JSON with activity list and pagination info
         """
-        client = await get_client(ctx)
+        client = get_client(ctx)
 
         from_date = None
         to_date = None
@@ -98,7 +98,7 @@ def register_tools(app):
         Returns:
             JSON with detailed activity data
         """
-        client = await get_client(ctx)
+        client = get_client(ctx)
         data = client.get_activity_details(activity_id)
 
         # Curate the summary for cleaner output
@@ -221,7 +221,7 @@ def register_tools(app):
         Returns:
             JSON with the download URL
         """
-        client = await get_client(ctx)
+        client = get_client(ctx)
 
         # Map format string to FileType enum
         format_map = {
@@ -260,7 +260,7 @@ def register_tools(app):
         """
         from datetime import timedelta
 
-        client = await get_client(ctx)
+        client = get_client(ctx)
 
         days = min(days, 30)
         end_date = datetime.now().date()
