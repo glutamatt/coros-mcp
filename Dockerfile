@@ -22,9 +22,9 @@ COPY pyproject.toml README.md ./
 COPY src/ ./src/
 
 # Remove local source references from pyproject.toml (not available in Docker)
-# and install dependencies using uv
+# and install dependencies using uv (regular install, not editable, for HF Space compatibility)
 RUN sed -i '/\[tool.uv.sources\]/,$d' pyproject.toml && \
-    uv pip install -e .
+    uv pip install .
 
 # Create data directory for session storage
 RUN mkdir -p /data/coros_sessions
