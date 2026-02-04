@@ -53,7 +53,8 @@ def coros_login(email: str, password: str) -> LoginResult:
         LoginResult with tokens if successful, error details if not
     """
     try:
-        client = CorosClient(email=email, password=password)
+        # Use EU region by default (most users are in Europe)
+        client = CorosClient(email=email, password=password, region="eu")
         user_info = client.login()
 
         # Export tokens for session persistence

@@ -5,8 +5,12 @@ Provides login, session management, and common identity tools.
 """
 
 import json
+import logging
 
 from fastmcp import Context
+
+logger = logging.getLogger(__name__)
+logging.basicConfig(level=logging.INFO)
 
 from coros_mcp.coros_platform import coros_login
 from coros_mcp.client_factory import (
@@ -59,6 +63,7 @@ def register_tools(app):
             set_session_tokens(ctx, coros_tokens)
             return {"success": True, "message": "Session restored"}
         except Exception as e:
+            logger.error(f"Error restoring COROS session: {e}")
             return {"success": False, "error": str(e)}
 
     @app.tool()
@@ -91,6 +96,10 @@ def register_tools(app):
                 "email": user.email,
             }, indent=2)
         except ValueError as e:
+            if is_token_expired_error(e):
+                return handle_token_expired(ctx)
+            raise
+        except Exception as e:
             if is_token_expired_error(e):
                 return handle_token_expired(ctx)
             raise

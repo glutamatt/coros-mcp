@@ -20,6 +20,8 @@ import requests
 
 # API Configuration
 API_URL = "https://teamapi.coros.com"
+API_URL_EU = "https://teameuapi.coros.com"  # Europe region
+API_URL_CN = "https://teamapi.coros.com.cn"  # China region
 FAQ_API_URL = "https://faq.coros.com"
 SALT = "9y78gpoERW4lBNYL"
 
@@ -91,23 +93,33 @@ class CorosClient:
     Implements the same functionality as coros-connect TypeScript library.
     """
 
-    def __init__(self, email: str = None, password: str = None):
+    def __init__(self, email: str = None, password: str = None, region: str = "eu"):
         """
         Initialize the COROS client.
 
         Args:
             email: COROS account email
             password: COROS account password
+            region: API region - "eu" (Europe), "global", or "cn" (China). Default: "eu"
         """
         self._email = email
         self._password = password
         self._access_token: Optional[str] = None
         self._user_info: Optional[UserInfo] = None
 
-        self._api_url = API_URL
+        # Set API URL based on region
+        if region == "eu":
+            self._api_url = API_URL_EU
+            self._sts_config = STS_CONFIGS[STSRegion.EU]
+        elif region == "cn":
+            self._api_url = API_URL_CN
+            self._sts_config = STS_CONFIGS[STSRegion.CN]
+        else:  # global
+            self._api_url = API_URL
+            self._sts_config = STS_CONFIGS[STSRegion.EN]
+
         self._faq_api_url = FAQ_API_URL
         self._salt = SALT
-        self._sts_config = STS_CONFIGS[STSRegion.EN]
         self._sign = "E34EF0E34A498A54A9C3EAEFC12B7CAF"
         self._app_id = "1660188068672619112"
 

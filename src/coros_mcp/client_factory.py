@@ -12,10 +12,14 @@ Session Persistence:
 
 import os
 import json
+import logging
 from pathlib import Path
 from fastmcp import Context
 
 from coros_mcp.coros_client import CorosClient
+
+logger = logging.getLogger(__name__)
+logging.basicConfig(level=logging.INFO)
 
 
 COROS_TOKENS_KEY = "coros_tokens"
@@ -32,7 +36,8 @@ def create_client_from_tokens(tokens: str) -> CorosClient:
     Returns:
         Authenticated CorosClient instance
     """
-    client = CorosClient()
+    # Use EU region by default (most users are in Europe)
+    client = CorosClient(region="eu")
     client.load_token(tokens)
     return client
 
@@ -66,8 +71,10 @@ def _load_session_data(session_id: str) -> dict:
         return {}
     try:
         with open(session_file, "r") as f:
-            return json.load(f)
-    except (json.JSONDecodeError, IOError):
+            data = json.load(f)
+            return data
+    except (json.JSONDecodeError, IOError) as e:
+        logger.error(f"Error loading session {session_id}: {e}")
         return {}
 
 
@@ -79,7 +86,7 @@ def _save_session_data(session_id: str, data: dict) -> None:
             json.dump(data, f)
     except IOError as e:
         # Log error but don't fail - session won't persist but tool will still work
-        print(f"Warning: Failed to save session data: {e}")
+        logger.error(f"Failed to save session data for {session_id}: {e}")
 
 
 def _get_session_tokens(ctx: Context) -> str | None:
@@ -106,7 +113,9 @@ def _get_session_tokens(ctx: Context) -> str | None:
 
         return tokens
     except RuntimeError:
-        # session_id not available (not in request context)
+        return None
+    except Exception as e:
+        logger.error(f"Error loading session tokens: {e}")
         return None
 
 
@@ -123,10 +132,10 @@ def _set_session_tokens_persistent(ctx: Context, tokens: str) -> None:
         session_data = _load_session_data(session_id)
         session_data[COROS_TOKENS_KEY] = tokens
         _save_session_data(session_id, session_data)
-    except RuntimeError:
-        # session_id not available (not in request context)
-        # Fall back to context state only (non-persistent)
-        pass
+    except RuntimeError as e:
+        logger.error(f"Cannot save tokens without session_id: {e}")
+    except Exception as e:
+        logger.error(f"Error saving session tokens: {e}")
 
 
 def _clear_session_tokens_persistent(ctx: Context) -> None:
@@ -142,9 +151,10 @@ def _clear_session_tokens_persistent(ctx: Context) -> None:
         session_file = _get_session_file_path(session_id)
         if session_file.exists():
             session_file.unlink()
-    except RuntimeError:
-        # session_id not available (not in request context)
-        pass
+    except RuntimeError as e:
+        logger.error(f"Cannot clear tokens without session_id: {e}")
+    except Exception as e:
+        logger.error(f"Error clearing session tokens: {e}")
 
 
 def get_client(ctx: Context) -> CorosClient:

@@ -15,6 +15,27 @@ coros_mcp/
 └── activities.py        # Activity tools (list, details, download)
 ```
 
+## Regional API Support
+
+COROS has separate API endpoints for different regions:
+- **EU** (Europe): `https://teameuapi.coros.com` - Default
+- **Global** (US): `https://teamapi.coros.com`
+- **CN** (China): `https://teamapi.coros.com.cn`
+
+**Important:** Auth tokens are region-specific. If you're in Europe, you must use the EU endpoint. Tokens obtained from the global API will not work with the EU API.
+
+The client defaults to the EU region as most users are in Europe. The region is set during client initialization:
+
+```python
+# Default (EU region)
+client = CorosClient(email=email, password=password)
+
+# Explicit region selection
+client = CorosClient(email=email, password=password, region="eu")    # Europe
+client = CorosClient(email=email, password=password, region="global") # US/Rest of World
+client = CorosClient(email=email, password=password, region="cn")     # China
+```
+
 ## Session Pattern
 
 Uses FastMCP Context for session-based authentication:
