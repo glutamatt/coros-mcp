@@ -40,7 +40,7 @@ def serialize_tokens(client: CorosClient) -> str:
     return client.export_token()
 
 
-async def get_client(ctx: Context) -> CorosClient:
+def get_client(ctx: Context) -> CorosClient:
     """
     Get COROS client from session.
 
@@ -53,13 +53,13 @@ async def get_client(ctx: Context) -> CorosClient:
     Raises:
         ValueError: If no session exists (user not logged in)
     """
-    tokens = await ctx.get_state(COROS_TOKENS_KEY)
+    tokens = ctx.get_state(COROS_TOKENS_KEY)
     if not tokens:
         raise ValueError("No COROS session. Call coros_login() first.")
     return create_client_from_tokens(tokens)
 
 
-async def set_session_tokens(ctx: Context, tokens: str) -> None:
+def set_session_tokens(ctx: Context, tokens: str) -> None:
     """
     Store tokens in the session.
 
@@ -67,14 +67,14 @@ async def set_session_tokens(ctx: Context, tokens: str) -> None:
         ctx: FastMCP Context
         tokens: Serialized tokens from CorosClient.export_token()
     """
-    await ctx.set_state(COROS_TOKENS_KEY, tokens)
+    ctx.set_state(COROS_TOKENS_KEY, tokens)
 
 
-async def clear_session_tokens(ctx: Context) -> None:
+def clear_session_tokens(ctx: Context) -> None:
     """
     Clear tokens from the session.
 
     Args:
         ctx: FastMCP Context
     """
-    await ctx.delete_state(COROS_TOKENS_KEY)
+    ctx.set_state(COROS_TOKENS_KEY, None)

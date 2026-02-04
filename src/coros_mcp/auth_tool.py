@@ -36,7 +36,7 @@ def register_tools(app):
         """
         result = coros_login(email, password)
         if result.success:
-            await set_session_tokens(ctx, result.tokens)
+            set_session_tokens(ctx, result.tokens)
         return result.to_dict()
 
     @app.tool()
@@ -54,7 +54,7 @@ def register_tools(app):
             Session restoration result
         """
         try:
-            await set_session_tokens(ctx, coros_tokens)
+            set_session_tokens(ctx, coros_tokens)
             return {"success": True, "message": "Session restored"}
         except Exception as e:
             return {"success": False, "error": str(e)}
@@ -69,7 +69,7 @@ def register_tools(app):
         Returns:
             Logout confirmation
         """
-        await clear_session_tokens(ctx)
+        clear_session_tokens(ctx)
         return {"success": True, "message": "Logged out"}
 
     @app.tool()
@@ -80,7 +80,7 @@ def register_tools(app):
         Returns:
             JSON with user's nickname/display name
         """
-        client = await get_client(ctx)
+        client = get_client(ctx)
         user = client.get_account()
         return json.dumps({
             "name": user.nickname,
