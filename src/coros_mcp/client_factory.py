@@ -198,3 +198,47 @@ def clear_session_tokens(ctx: Context) -> None:
         ctx: FastMCP Context
     """
     _clear_session_tokens_persistent(ctx)
+
+
+def is_token_expired_error(error: Exception) -> bool:
+    """
+    Check if an error indicates that the COROS access token has expired.
+
+    COROS tokens can expire at any time without warning. The API returns
+    "Access token is invalid" when a token has expired or been invalidated
+    (e.g., by logging in via the webapp).
+
+    Args:
+        error: The exception to check
+
+    Returns:
+        True if the error indicates an expired/invalid token
+    """
+    error_msg = str(error).lower()
+    return "access token is invalid" in error_msg or "token" in error_msg and "invalid" in error_msg
+
+
+def handle_token_expired(ctx: Context) -> str:
+    """
+    Handle an expired COROS token by clearing the session.
+
+    When a token expires, we clear it from the session store so that
+    the user is prompted to log in again on their next request.
+
+    Args:
+        ctx: FastMCP Context
+
+    Returns:
+        Error message to return to the user
+    """
+    try:
+        clear_session_tokens(ctx)
+    except Exception:
+        # Ignore errors during cleanup
+        pass
+
+    return json.dumps({
+        "error": "Your COROS session has expired. Please log in again.",
+        "error_code": "SESSION_EXPIRED",
+        "note": "COROS tokens can expire at any time. Logging in via the COROS webapp will also invalidate tokens from this app."
+    }, indent=2)

@@ -13,6 +13,8 @@ from coros_mcp.client_factory import (
     get_client,
     set_session_tokens,
     clear_session_tokens,
+    is_token_expired_error,
+    handle_token_expired,
 )
 
 
@@ -80,13 +82,18 @@ def register_tools(app):
         Returns:
             JSON with user's nickname/display name
         """
-        client = get_client(ctx)
-        user = client.get_account()
-        return json.dumps({
-            "name": user.nickname,
-            "user_id": user.user_id,
-            "email": user.email,
-        }, indent=2)
+        try:
+            client = get_client(ctx)
+            user = client.get_account()
+            return json.dumps({
+                "name": user.nickname,
+                "user_id": user.user_id,
+                "email": user.email,
+            }, indent=2)
+        except ValueError as e:
+            if is_token_expired_error(e):
+                return handle_token_expired(ctx)
+            raise
 
     @app.tool()
     async def get_available_features(ctx: Context) -> str:
