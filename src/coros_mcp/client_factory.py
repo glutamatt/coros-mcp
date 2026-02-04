@@ -2,14 +2,24 @@
 Client factory for COROS MCP server.
 
 Provides session-based client management using FastMCP Context.
+Each MCP connection has isolated session state via mcp-session-id header.
+
+Session Persistence:
+- FastMCP Context state (ctx._state) doesn't persist across HTTP requests
+- Solution: File-based session store using ctx.session_id as key
+- Sessions stored in /data/coros_sessions/{session_id}.json
 """
 
+import os
+import json
+from pathlib import Path
 from fastmcp import Context
 
 from coros_mcp.coros_client import CorosClient
 
 
 COROS_TOKENS_KEY = "coros_tokens"
+SESSION_STORE_DIR = Path(os.environ.get("COROS_SESSION_DIR", "/data/coros_sessions"))
 
 
 def create_client_from_tokens(tokens: str) -> CorosClient:
@@ -40,20 +50,125 @@ def serialize_tokens(client: CorosClient) -> str:
     return client.export_token()
 
 
+def _get_session_file_path(session_id: str) -> Path:
+    """Get the file path for a session's data."""
+    # Ensure session store directory exists
+    SESSION_STORE_DIR.mkdir(parents=True, exist_ok=True)
+    # Sanitize session_id to prevent path traversal
+    safe_session_id = "".join(c for c in session_id if c.isalnum() or c in "-_")
+    return SESSION_STORE_DIR / f"{safe_session_id}.json"
+
+
+def _load_session_data(session_id: str) -> dict:
+    """Load session data from file system."""
+    session_file = _get_session_file_path(session_id)
+    if not session_file.exists():
+        return {}
+    try:
+        with open(session_file, "r") as f:
+            return json.load(f)
+    except (json.JSONDecodeError, IOError):
+        return {}
+
+
+def _save_session_data(session_id: str, data: dict) -> None:
+    """Save session data to file system."""
+    session_file = _get_session_file_path(session_id)
+    try:
+        with open(session_file, "w") as f:
+            json.dump(data, f)
+    except IOError as e:
+        # Log error but don't fail - session won't persist but tool will still work
+        print(f"Warning: Failed to save session data: {e}")
+
+
+def _get_session_tokens(ctx: Context) -> str | None:
+    """
+    Get COROS tokens from persistent session store.
+
+    First checks in-memory Context state (for performance within same request),
+    then falls back to file-based session store for cross-request persistence.
+    """
+    # First try in-memory state (fast path for same-request calls)
+    tokens = ctx.get_state(COROS_TOKENS_KEY)
+    if tokens:
+        return tokens
+
+    # Fall back to persistent session store
+    try:
+        session_id = ctx.session_id
+        session_data = _load_session_data(session_id)
+        tokens = session_data.get(COROS_TOKENS_KEY)
+
+        # Cache in context state for this request
+        if tokens:
+            ctx.set_state(COROS_TOKENS_KEY, tokens)
+
+        return tokens
+    except RuntimeError:
+        # session_id not available (not in request context)
+        return None
+
+
+def _set_session_tokens_persistent(ctx: Context, tokens: str) -> None:
+    """
+    Store COROS tokens in both in-memory Context and persistent session store.
+    """
+    # Store in context state (for current request)
+    ctx.set_state(COROS_TOKENS_KEY, tokens)
+
+    # Store in persistent session store (for future requests)
+    try:
+        session_id = ctx.session_id
+        session_data = _load_session_data(session_id)
+        session_data[COROS_TOKENS_KEY] = tokens
+        _save_session_data(session_id, session_data)
+    except RuntimeError:
+        # session_id not available (not in request context)
+        # Fall back to context state only (non-persistent)
+        pass
+
+
+def _clear_session_tokens_persistent(ctx: Context) -> None:
+    """
+    Clear COROS tokens from both in-memory Context and persistent session store.
+    """
+    # Clear from context state
+    ctx.set_state(COROS_TOKENS_KEY, None)
+
+    # Clear from persistent session store
+    try:
+        session_id = ctx.session_id
+        session_file = _get_session_file_path(session_id)
+        if session_file.exists():
+            session_file.unlink()
+    except RuntimeError:
+        # session_id not available (not in request context)
+        pass
+
+
 def get_client(ctx: Context) -> CorosClient:
     """
-    Get COROS client from session.
+    Get COROS client from session Context.
+
+    Automatically loads tokens from persistent session store if not in memory.
+
+    Usage in tools:
+        @app.tool()
+        async def get_activities(ctx: Context) -> str:
+            client = get_client(ctx)
+            return json.dumps(client.get_activities())
 
     Args:
-        ctx: FastMCP Context
+        ctx: FastMCP Context (automatically injected by framework)
 
     Returns:
         Authenticated CorosClient instance
 
     Raises:
-        ValueError: If no session exists (user not logged in)
+        ValueError: If no COROS session is active
     """
-    tokens = ctx.get_state(COROS_TOKENS_KEY)
+    tokens = _get_session_tokens(ctx)
     if not tokens:
         raise ValueError("No COROS session. Call coros_login() first.")
     return create_client_from_tokens(tokens)
@@ -61,20 +176,25 @@ def get_client(ctx: Context) -> CorosClient:
 
 def set_session_tokens(ctx: Context, tokens: str) -> None:
     """
-    Store tokens in the session.
+    Store COROS tokens in persistent session store.
+
+    Tokens are stored both in-memory (for current request) and on disk
+    (for future requests with same session_id).
 
     Args:
         ctx: FastMCP Context
         tokens: Serialized tokens from CorosClient.export_token()
     """
-    ctx.set_state(COROS_TOKENS_KEY, tokens)
+    _set_session_tokens_persistent(ctx, tokens)
 
 
 def clear_session_tokens(ctx: Context) -> None:
     """
-    Clear tokens from the session.
+    Clear COROS tokens from persistent session store.
+
+    Removes tokens from both in-memory context and disk storage.
 
     Args:
         ctx: FastMCP Context
     """
-    ctx.set_state(COROS_TOKENS_KEY, None)
+    _clear_session_tokens_persistent(ctx)
