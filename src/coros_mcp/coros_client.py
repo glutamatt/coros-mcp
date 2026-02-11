@@ -9,6 +9,7 @@ This uses a non-public API from COROS Training Hub that could break anytime.
 
 import hashlib
 import json
+import logging
 from dataclasses import dataclass
 from datetime import date, datetime
 from enum import Enum
@@ -16,6 +17,8 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 import requests
+
+logger = logging.getLogger(__name__)
 
 
 # API Configuration
@@ -228,7 +231,7 @@ class CorosClient:
         data = response.json()
 
         if data.get("result") != "0000":
-            raise ValueError(data.get("message", "Unknown API error"))
+            raise ValueError(f"{data.get('message', 'Unknown API error')} (apiCode={data.get('apiCode')}, result={data.get('result')})")
 
         return data
 

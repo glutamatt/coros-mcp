@@ -34,16 +34,20 @@ def coros_to_date(coros_int: int) -> str:
     return None
 
 
-def format_duration(seconds: int) -> str:
+def format_duration(seconds) -> str:
     """Format seconds into human-readable duration.
 
     Args:
-        seconds: Duration in seconds
+        seconds: Duration in seconds (may be string from COROS API)
 
     Returns:
         Formatted string like "1h01m01s" or "25m30s"
     """
-    if not seconds or seconds <= 0:
+    try:
+        seconds = int(seconds)
+    except (TypeError, ValueError):
+        return "0s"
+    if seconds <= 0:
         return "0s"
     h = seconds // 3600
     m = (seconds % 3600) // 60
@@ -73,16 +77,20 @@ def format_pace(avg_pace: int) -> str:
     return f"{minutes}:{secs:02d}/km"
 
 
-def format_distance(meters: float) -> str:
+def format_distance(meters) -> str:
     """Format distance in meters to human-readable string.
 
     Args:
-        meters: Distance in meters
+        meters: Distance in meters (may be string from COROS API)
 
     Returns:
         Formatted string like "10.0 km" or "800 m"
     """
-    if not meters or meters <= 0:
+    try:
+        meters = float(meters)
+    except (TypeError, ValueError):
+        return "0 m"
+    if meters <= 0:
         return "0 m"
     if meters >= 1000:
         return f"{meters / 1000:.1f} km"

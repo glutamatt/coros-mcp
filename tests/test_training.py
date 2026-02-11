@@ -30,7 +30,9 @@ async def test_get_training_schedule(app_with_training, mock_coros_client):
     assert data["plan_name"] == "Test Plan"
     assert data["period"]["start_date"] == "2026-02-09"
     assert len(data["scheduled_workouts"]) == 1
+    assert data["scheduled_workouts"][0]["id"] == "5"  # idInPlan, not program.id
     assert data["scheduled_workouts"][0]["name"] == "Easy Run"
+    assert data["scheduled_workouts"][0]["date"] == "2026-02-12"
     assert data["scheduled_workouts"][0]["status"] == "planned"
 
     assert len(data["unplanned_activities"]) == 1
@@ -84,38 +86,58 @@ async def test_get_plan_adherence_defaults(app_with_training, mock_coros_client)
 
 @pytest.mark.asyncio
 async def test_delete_scheduled_workout(app_with_training, mock_coros_client):
+    # workout_id is idInPlan ("5"), not program.id ("prog-sys-id-1")
     result = await app_with_training.call_tool(
         "delete_scheduled_workout",
-        {"workout_id": "prog1", "plan_version": 5, "happen_day": 20260212},
+        {"workout_id": "5", "date": "2026-02-12"},
     )
 
     text = get_tool_result_text(result)
     data = json.loads(text)
     assert data["success"] is True
+    assert "Easy Run" in data["message"]
 
-    # Verify the API was called correctly
+    # Verify delete payload: status 3, planId/planProgramId, empty entities/programs
     call_args = mock_coros_client.update_training_schedule.call_args
     payload = call_args[0][0]
     assert payload["pbVersion"] == 5
-    assert payload["versionObjects"][0]["id"] == "prog1"
-    assert payload["versionObjects"][0]["status"] == 2
+    assert payload["entities"] == []
+    assert payload["programs"] == []
+    assert payload["versionObjects"][0]["id"] == "5"
+    assert payload["versionObjects"][0]["planProgramId"] == "5"
+    assert payload["versionObjects"][0]["planId"] == "460904915775176706"
+    assert payload["versionObjects"][0]["status"] == 3  # status 3 = delete
 
 
 @pytest.mark.asyncio
-async def test_delete_scheduled_workout_failure(app_with_training, mock_coros_client):
-    mock_coros_client.update_training_schedule.return_value = {
-        "result": "1001", "message": "Plan version conflict"
-    }
-
+async def test_delete_scheduled_workout_not_found(app_with_training, mock_coros_client):
+    """Test deletion of a workout that doesn't exist in the schedule."""
     result = await app_with_training.call_tool(
         "delete_scheduled_workout",
-        {"workout_id": "prog1", "plan_version": 3, "happen_day": 20260212},
+        {"workout_id": "nonexistent", "date": "2026-02-12"},
     )
 
     text = get_tool_result_text(result)
     data = json.loads(text)
     assert data["success"] is False
-    assert "conflict" in data["error"].lower()
+    assert "not found" in data["error"].lower()
+    # Should not call update_training_schedule
+    mock_coros_client.update_training_schedule.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_delete_scheduled_workout_failure(app_with_training, mock_coros_client):
+    mock_coros_client.update_training_schedule.side_effect = ValueError("Plan data is illegal.")
+
+    result = await app_with_training.call_tool(
+        "delete_scheduled_workout",
+        {"workout_id": "5", "date": "2026-02-12"},
+    )
+
+    text = get_tool_result_text(result)
+    data = json.loads(text)
+    assert data["success"] is False
+    assert "illegal" in data["error"].lower()
 
 
 def test_training_tools_registered(app_with_training):

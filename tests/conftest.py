@@ -87,6 +87,16 @@ def mock_coros_client():
 
     client.load_token = Mock()
     client.logout = Mock()
+
+    # Set user_info directly (load_token on Mock doesn't populate it)
+    client.user_info = UserInfo(
+        user_id="123456",
+        nickname="TestUser",
+        email="test@test.com",
+        head_pic="",
+        country_code="US",
+        birthday=19900101,
+    )
     client.is_logged_in = True
 
     # Dashboard methods
@@ -224,16 +234,34 @@ def mock_coros_client():
         ],
     })
 
-    # Training schedule methods
+    # Training schedule methods — real API has entities[] and programs[] as separate arrays
+    # Programs do NOT have happenDay; dates live on entities. Linked via idInPlan.
     client.get_training_schedule = Mock(return_value={
+        "id": "460904915775176706",
         "name": "Test Plan",
         "pbVersion": 5,
+        "maxIdInPlan": "10",
+        "maxPlanProgramId": "10",
+        "entities": [
+            {
+                "id": "entity-sys-id-1",
+                "idInPlan": "5",
+                "planId": "460904915775176706",
+                "planProgramId": "5",
+                "happenDay": 20260212,
+                "dayNo": 626,
+                "sortNo": 1,
+                "sortNoInPlan": 0,
+                "sortNoInSchedule": 1,
+                "exerciseBarChart": [],
+            },
+        ],
         "programs": [
             {
-                "id": "prog1",
+                "id": "prog-sys-id-1",
+                "idInPlan": "5",
                 "name": "Easy Run",
                 "sportType": 1,
-                "happenDay": 20260212,
                 "planDistance": 8000,
                 "planDuration": 2400,
                 "planTrainingLoad": 60,

@@ -5,9 +5,12 @@ Training plan viewing, plan adherence, and workout deletion.
 """
 
 import json
+import logging
 from datetime import datetime, timedelta
 
 from fastmcp import Context
+
+logger = logging.getLogger(__name__)
 
 from coros_mcp.client_factory import get_client
 from coros_mcp.utils import date_to_coros, coros_to_date, format_duration, format_distance, get_sport_name
@@ -50,14 +53,22 @@ def register_tools(app):
             date_to_coros(end_date),
         )
 
+        # Build entity lookup: idInPlan → entity (entities have happenDay, programs don't)
+        entity_by_id = {}
+        for e in data.get("entities", []):
+            entity_by_id[e.get("idInPlan")] = e
+
         # Parse programs (scheduled workouts)
         programs = []
         for p in data.get("programs", []):
+            # Get date from matching entity, not from program
+            id_in_plan = p.get("idInPlan")
+            entity = entity_by_id.get(id_in_plan, {})
             program = {
-                "id": p.get("id"),
+                "id": id_in_plan,
                 "name": p.get("name"),
                 "sport_type": get_sport_name(p.get("sportType", 0)),
-                "date": coros_to_date(p.get("happenDay")),
+                "date": coros_to_date(entity.get("happenDay")),
                 "planned_distance": p.get("planDistance"),
                 "planned_duration": p.get("planDuration"),
                 "planned_load": p.get("planTrainingLoad"),
@@ -199,45 +210,80 @@ def register_tools(app):
     async def delete_scheduled_workout(
         ctx: Context,
         workout_id: str,
-        plan_version: int,
-        happen_day: int,
+        date: str,
     ) -> str:
         """
         Delete a scheduled workout from the training plan.
 
-        Removes a specific workout by sending an empty program update.
-        Use get_training_schedule first to find workout IDs and plan version.
+        Removes a specific workout. Use get_training_schedule first to find workout IDs and dates.
 
         Args:
-            workout_id: The workout/program ID from get_training_schedule
-            plan_version: Current plan pbVersion (for optimistic concurrency)
-            happen_day: The date of the workout as YYYYMMDD integer
+            workout_id: The workout ID from get_training_schedule
+            date: The workout date in YYYY-MM-DD format (from get_training_schedule)
 
         Returns:
             JSON with deletion result
         """
         client = get_client(ctx)
 
+        # Query the schedule for that date to get pbVersion and planId
+        coros_date = date_to_coros(date)
+        schedule = client.get_training_schedule(coros_date, coros_date)
+        pb_version = schedule.get("pbVersion")
+
+        if pb_version is None:
+            return json.dumps({
+                "success": False,
+                "error": "No active training plan found.",
+            }, indent=2)
+
+        # Get planId from entities (needed in versionObjects)
+        plan_id = None
+        workout_name = workout_id
+        for e in schedule.get("entities", []):
+            if e.get("idInPlan") == workout_id:
+                plan_id = e.get("planId")
+                break
+
+        if plan_id is None:
+            program_ids = [p.get("idInPlan") for p in schedule.get("programs", [])]
+            return json.dumps({
+                "success": False,
+                "error": f"Workout {workout_id} not found in training plan. Available: {program_ids}",
+            }, indent=2)
+
+        # Get workout name for confirmation message
+        for p in schedule.get("programs", []):
+            if p.get("idInPlan") == workout_id:
+                workout_name = p.get("name", workout_id)
+                break
+
+        # COROS delete: status 3, with planId and planProgramId, no entities/programs needed
         payload = {
-            "pbVersion": plan_version,
+            "pbVersion": pb_version,
             "entities": [],
             "programs": [],
             "versionObjects": [
-                {"id": workout_id, "status": 2},  # status 2 = deleted
+                {
+                    "id": workout_id,
+                    "planProgramId": workout_id,
+                    "planId": plan_id,
+                    "status": 3,  # status 3 = delete
+                },
             ],
         }
 
-        response = client.update_training_schedule(payload)
-
-        if response.get("result") == "0000":
+        try:
+            client.update_training_schedule(payload)
             return json.dumps({
                 "success": True,
-                "message": f"Workout {workout_id} deleted from plan",
+                "message": f"Workout '{workout_name}' deleted from plan",
             }, indent=2)
-        else:
+        except ValueError as e:
+            logger.error(f"delete_scheduled_workout failed: {e}")
             return json.dumps({
                 "success": False,
-                "error": response.get("message", "Unknown error"),
+                "error": str(e),
             }, indent=2)
 
     return app
