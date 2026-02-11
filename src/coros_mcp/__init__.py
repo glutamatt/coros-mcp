@@ -18,18 +18,28 @@ from fastmcp import FastMCP
 
 from coros_mcp import auth_tool
 from coros_mcp import activities
+from coros_mcp import dashboard
+from coros_mcp import analysis
+from coros_mcp import training
+from coros_mcp import workouts
+from coros_mcp import profile
 
 
 def create_app() -> FastMCP:
     """Create and configure the MCP app with all tools registered."""
     # Create the MCP app
-    app = FastMCP("COROS Training Hub v1.0")
+    app = FastMCP("COROS Training Hub v2.0")
 
     # Register auth tools (login, session management, identity)
     app = auth_tool.register_tools(app)
 
-    # Register activity tools
+    # Register domain tools
     app = activities.register_tools(app)
+    app = dashboard.register_tools(app)
+    app = analysis.register_tools(app)
+    app = training.register_tools(app)
+    app = workouts.register_tools(app)
+    app = profile.register_tools(app)
 
     return app
 

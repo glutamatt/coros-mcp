@@ -5,7 +5,7 @@ Tests login, session management, and logout functionality.
 """
 import json
 import pytest
-from unittest.mock import patch, Mock, AsyncMock
+from unittest.mock import patch, Mock
 from mcp.server.fastmcp import FastMCP
 from mcp.server.fastmcp.exceptions import ToolError
 
@@ -25,12 +25,7 @@ def app_with_auth():
 @pytest.mark.asyncio
 async def test_get_user_name(app_with_auth, mock_coros_client):
     """Test get_user_name tool returns user info."""
-
-    async def mock_get_client(ctx):
-        return mock_coros_client
-
-    with patch("coros_mcp.auth_tool.get_client", mock_get_client):
-        result = await app_with_auth.call_tool("get_user_name", {})
+    result = await app_with_auth.call_tool("get_user_name", {})
 
     text = get_tool_result_text(result)
     assert "TestUser" in text
@@ -41,12 +36,7 @@ async def test_get_user_name(app_with_auth, mock_coros_client):
 @pytest.mark.asyncio
 async def test_get_user_name_returns_json(app_with_auth, mock_coros_client):
     """Test get_user_name tool returns valid JSON."""
-
-    async def mock_get_client(ctx):
-        return mock_coros_client
-
-    with patch("coros_mcp.auth_tool.get_client", mock_get_client):
-        result = await app_with_auth.call_tool("get_user_name", {})
+    result = await app_with_auth.call_tool("get_user_name", {})
 
     # Parse the result as JSON
     text = get_tool_result_text(result)
@@ -94,7 +84,7 @@ async def test_coros_login_success(app_with_auth):
     })
 
     with patch("coros_mcp.auth_tool.coros_login", return_value=mock_result) as mock_login:
-        with patch("coros_mcp.auth_tool.set_session_tokens", new_callable=AsyncMock) as mock_set_tokens:
+        with patch("coros_mcp.auth_tool.set_session_tokens") as mock_set_tokens:
             result = await app_with_auth.call_tool(
                 "coros_login_tool",
                 {"email": "test@test.com", "password": "password123"}
@@ -118,7 +108,7 @@ async def test_coros_login_failure(app_with_auth):
     })
 
     with patch("coros_mcp.auth_tool.coros_login", return_value=mock_result) as mock_login:
-        with patch("coros_mcp.auth_tool.set_session_tokens", new_callable=AsyncMock) as mock_set_tokens:
+        with patch("coros_mcp.auth_tool.set_session_tokens") as mock_set_tokens:
             result = await app_with_auth.call_tool(
                 "coros_login_tool",
                 {"email": "test@test.com", "password": "wrongpassword"}
@@ -136,7 +126,7 @@ async def test_set_coros_session_success(app_with_auth):
     # Use a simple token string that won't be parsed as JSON by FastMCP
     tokens = "token_abc123_xyz789"
 
-    with patch("coros_mcp.auth_tool.set_session_tokens", new_callable=AsyncMock) as mock_set_tokens:
+    with patch("coros_mcp.auth_tool.set_session_tokens") as mock_set_tokens:
         result = await app_with_auth.call_tool(
             "set_coros_session",
             {"coros_tokens": tokens}
@@ -152,8 +142,7 @@ async def test_set_coros_session_failure(app_with_auth):
     """Test set_coros_session handles errors."""
     tokens = "invalid_json"
 
-    with patch("coros_mcp.auth_tool.set_session_tokens", new_callable=AsyncMock) as mock_set_tokens:
-        mock_set_tokens.side_effect = Exception("Invalid token format")
+    with patch("coros_mcp.auth_tool.set_session_tokens", side_effect=Exception("Invalid token format")):
         result = await app_with_auth.call_tool(
             "set_coros_session",
             {"coros_tokens": tokens}
@@ -166,7 +155,7 @@ async def test_set_coros_session_failure(app_with_auth):
 @pytest.mark.asyncio
 async def test_coros_logout(app_with_auth):
     """Test coros_logout clears session tokens."""
-    with patch("coros_mcp.auth_tool.clear_session_tokens", new_callable=AsyncMock) as mock_clear_tokens:
+    with patch("coros_mcp.auth_tool.clear_session_tokens") as mock_clear_tokens:
         result = await app_with_auth.call_tool("coros_logout", {})
 
     mock_clear_tokens.assert_called_once()
@@ -175,16 +164,13 @@ async def test_coros_logout(app_with_auth):
 
 
 @pytest.mark.asyncio
-async def test_get_user_name_not_logged_in(app_with_auth):
+async def test_get_user_name_not_logged_in(app_with_auth, mock_get_client):
     """Test get_user_name raises error when not logged in."""
+    mock_get_client.side_effect = ValueError("No COROS session. Call coros_login() first.")
 
-    async def mock_get_client_no_session(ctx):
-        raise ValueError("No COROS session. Call coros_login() first.")
-
-    with patch("coros_mcp.auth_tool.get_client", mock_get_client_no_session):
-        # FastMCP wraps tool errors in ToolError
-        with pytest.raises(ToolError) as exc_info:
-            await app_with_auth.call_tool("get_user_name", {})
+    # FastMCP wraps tool errors in ToolError
+    with pytest.raises(ToolError) as exc_info:
+        await app_with_auth.call_tool("get_user_name", {})
 
     assert "session" in str(exc_info.value).lower()
 

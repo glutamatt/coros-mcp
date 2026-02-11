@@ -484,6 +484,152 @@ class CorosClient:
 
         self.load_token(token_file.read_text())
 
+    # ── Dashboard endpoints ─────────────────────────────────────────────
+
+    def get_dashboard(self) -> Dict[str, Any]:
+        """
+        Get main fitness dashboard summary.
+
+        Returns recovery state, fitness scores, HRV data, stamina level,
+        and training load overview.
+        """
+        response = self._make_request("GET", "dashboard/query")
+        return response["data"]
+
+    def get_dashboard_detail(self) -> Dict[str, Any]:
+        """
+        Get detailed dashboard data.
+
+        Returns daily training metrics (ATI, CTI, VO2max, tired rate),
+        recent sport data, and current week records.
+        """
+        response = self._make_request("GET", "dashboard/detail/query")
+        return response["data"]
+
+    def get_personal_records(self) -> Dict[str, Any]:
+        """
+        Get personal records by time period (week/month/year/all-time).
+        """
+        response = self._make_request("GET", "dashboard/queryCycleRecord")
+        return response["data"]
+
+    # ── Analysis endpoints ────────────────────────────────────────────
+
+    def get_analysis(self) -> Dict[str, Any]:
+        """
+        Get comprehensive training analysis.
+
+        Returns daily metrics, 7-day rolling averages, per-sport statistics,
+        training load intensity breakdown, weekly summaries, and periodization stages.
+        """
+        response = self._make_request("GET", "analyse/query")
+        return response["data"]
+
+    # ── Profile endpoints ─────────────────────────────────────────────
+
+    def get_account_full(self) -> Dict[str, Any]:
+        """
+        Get full account profile including biometrics and training zones.
+
+        Returns user info, zone data (HR/pace/power zones), max HR, LTHR,
+        FTP, and run score list.
+        """
+        response = self._make_request("GET", "account/query")
+        return response["data"]
+
+    # ── Training schedule endpoints ───────────────────────────────────
+
+    def get_training_schedule(self, start_date: int, end_date: int) -> Dict[str, Any]:
+        """
+        Get training plan for a date range.
+
+        Args:
+            start_date: Start date as YYYYMMDD integer
+            end_date: End date as YYYYMMDD integer
+
+        Returns plan with scheduled workouts, completed activities, and week stages.
+        """
+        response = self._make_request(
+            "GET",
+            "training/schedule/query",
+            params={
+                "startDate": str(start_date),
+                "endDate": str(end_date),
+                "supportRestExercise": "1",
+            },
+        )
+        return response["data"]
+
+    def get_training_summary(self, start_date: int, end_date: int) -> Dict[str, Any]:
+        """
+        Get actual vs planned training summary.
+
+        Args:
+            start_date: Start date as YYYYMMDD integer
+            end_date: End date as YYYYMMDD integer
+
+        Returns daily and weekly actual vs planned (distance, duration, load).
+        """
+        response = self._make_request(
+            "GET",
+            "training/schedule/querysum",
+            params={
+                "startDate": str(start_date),
+                "endDate": str(end_date),
+            },
+        )
+        return response["data"]
+
+    def update_training_schedule(self, payload: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Create or update scheduled workouts.
+
+        Args:
+            payload: Full schedule update payload with entities, programs, versionObjects
+
+        Returns API response.
+        """
+        response = self._make_request(
+            "POST",
+            "training/schedule/update",
+            json_data=payload,
+        )
+        return response
+
+    # ── Workout builder endpoints ─────────────────────────────────────
+
+    def estimate_workout(self, payload: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Estimate training load for a workout before saving.
+
+        Args:
+            payload: Workout definition with entity and program
+
+        Returns estimated distance, duration, training load.
+        """
+        response = self._make_request(
+            "POST",
+            "training/program/estimate",
+            json_data=payload,
+        )
+        return response["data"]
+
+    def calculate_workout(self, payload: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Full workout calculation with bar chart data.
+
+        Args:
+            payload: Full program object with exercises
+
+        Returns calculated metrics and exercise bar chart.
+        """
+        response = self._make_request(
+            "POST",
+            "training/program/calculate",
+            json_data=payload,
+        )
+        return response["data"]
+
     def logout(self) -> None:
         """Clear the session."""
         self._access_token = None

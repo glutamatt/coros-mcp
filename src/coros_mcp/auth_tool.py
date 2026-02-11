@@ -115,8 +115,6 @@ def register_tools(app):
         Returns:
             JSON with available feature categories
         """
-        # COROS has a more limited API compared to Garmin
-        # List what we actually support
         features = {
             "platform": "COROS Training Hub",
             "auth": [
@@ -126,16 +124,38 @@ def register_tools(app):
             ],
             "user": [
                 "get_user_name - Get display name and user info",
+                "get_athlete_profile - Full profile with biometrics and training zones",
                 "get_available_features - This feature list",
             ],
             "activities": [
                 "get_activities - List activities with filters",
-                "get_activity_details - Detailed activity data",
-                "get_activity_download_url - Download activity file",
+                "get_activity_details - Detailed activity data (laps, HR zones, weather)",
+                "get_activity_download_url - Download activity file (FIT/GPX/TCX/KML/CSV)",
+                "get_activities_summary - Aggregated stats over N days",
+            ],
+            "dashboard": [
+                "get_fitness_summary - Recovery state, fitness scores, HRV, stamina, training load",
+                "get_hrv_trend - HRV baseline and daily values for overtraining detection",
+                "get_personal_records - PRs by period (week/month/year/all-time)",
+            ],
+            "analysis": [
+                "get_training_load_analysis - Daily/weekly load, ATI/CTI, VO2max trend, recommended load",
+                "get_sport_statistics - Per-sport volume/load breakdown and intensity distribution",
+            ],
+            "training_plan": [
+                "get_training_schedule - Current plan with scheduled workouts",
+                "get_plan_adherence - Actual vs planned (distance, duration, load)",
+                "delete_scheduled_workout - Remove a workout from the plan",
+            ],
+            "workout_builder": [
+                "create_workout - Build structured workout and push to watch",
+                "estimate_workout_load - Preview load before committing",
+                "reschedule_workout - Move a workout to a different date",
             ],
             "notes": [
-                "COROS API does not provide sleep, HRV, stress, or body battery data",
-                "For those metrics, use Garmin or request data export from COROS support",
+                "Sleep and stress data are not directly available via API",
+                "HRV data is available through the dashboard (measured during sleep)",
+                "Workout creation syncs to COROS watch for guided execution",
             ],
         }
         return json.dumps(features, indent=2)

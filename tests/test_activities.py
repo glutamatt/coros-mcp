@@ -1,12 +1,9 @@
 """
 Tests for COROS MCP activity tools.
-
-Tests activity listing, details, downloads, and summary functionality.
 """
 import json
 import pytest
-from unittest.mock import patch, Mock, AsyncMock
-from datetime import datetime, timedelta
+from datetime import datetime
 from mcp.server.fastmcp import FastMCP
 from mcp.server.fastmcp.exceptions import ToolError
 
@@ -26,12 +23,7 @@ def app_with_activities():
 @pytest.mark.asyncio
 async def test_get_activities_empty(app_with_activities, mock_coros_client):
     """Test get_activities returns empty list when no activities."""
-
-    async def mock_get_client(ctx):
-        return mock_coros_client
-
-    with patch("coros_mcp.activities.get_client", mock_get_client):
-        result = await app_with_activities.call_tool("get_activities", {})
+    result = await app_with_activities.call_tool("get_activities", {})
 
     text = get_tool_result_text(result)
     data = json.loads(text)
@@ -44,11 +36,7 @@ async def test_get_activities_with_data(app_with_activities, mock_coros_client, 
     """Test get_activities returns activity list."""
     mock_coros_client.get_activities_list.return_value = sample_activities_list
 
-    async def mock_get_client(ctx):
-        return mock_coros_client
-
-    with patch("coros_mcp.activities.get_client", mock_get_client):
-        result = await app_with_activities.call_tool("get_activities", {})
+    result = await app_with_activities.call_tool("get_activities", {})
 
     text = get_tool_result_text(result)
     data = json.loads(text)
@@ -63,16 +51,11 @@ async def test_get_activities_with_date_filter(app_with_activities, mock_coros_c
     """Test get_activities with date range filter."""
     mock_coros_client.get_activities_list.return_value = sample_activities_list
 
-    async def mock_get_client(ctx):
-        return mock_coros_client
+    result = await app_with_activities.call_tool(
+        "get_activities",
+        {"start_date": "2024-01-14", "end_date": "2024-01-15"}
+    )
 
-    with patch("coros_mcp.activities.get_client", mock_get_client):
-        result = await app_with_activities.call_tool(
-            "get_activities",
-            {"start_date": "2024-01-14", "end_date": "2024-01-15"}
-        )
-
-    # Verify the date filter was passed to the client
     call_args = mock_coros_client.get_activities_list.call_args
     assert call_args.kwargs["from_date"] == datetime.strptime("2024-01-14", "%Y-%m-%d").date()
     assert call_args.kwargs["to_date"] == datetime.strptime("2024-01-15", "%Y-%m-%d").date()
@@ -83,16 +66,11 @@ async def test_get_activities_with_pagination(app_with_activities, mock_coros_cl
     """Test get_activities with pagination parameters."""
     mock_coros_client.get_activities_list.return_value = sample_activities_list
 
-    async def mock_get_client(ctx):
-        return mock_coros_client
+    result = await app_with_activities.call_tool(
+        "get_activities",
+        {"page": 2, "size": 10}
+    )
 
-    with patch("coros_mcp.activities.get_client", mock_get_client):
-        result = await app_with_activities.call_tool(
-            "get_activities",
-            {"page": 2, "size": 10}
-        )
-
-    # Verify pagination was passed to the client
     call_args = mock_coros_client.get_activities_list.call_args
     assert call_args.kwargs["page"] == 2
     assert call_args.kwargs["size"] == 10
@@ -103,16 +81,11 @@ async def test_get_activities_size_limit(app_with_activities, mock_coros_client,
     """Test get_activities limits size to 50."""
     mock_coros_client.get_activities_list.return_value = sample_activities_list
 
-    async def mock_get_client(ctx):
-        return mock_coros_client
+    result = await app_with_activities.call_tool(
+        "get_activities",
+        {"size": 100}
+    )
 
-    with patch("coros_mcp.activities.get_client", mock_get_client):
-        result = await app_with_activities.call_tool(
-            "get_activities",
-            {"size": 100}  # Exceeds max of 50
-        )
-
-    # Verify size was capped at 50
     call_args = mock_coros_client.get_activities_list.call_args
     assert call_args.kwargs["size"] == 50
 
@@ -122,14 +95,10 @@ async def test_get_activity_details(app_with_activities, mock_coros_client, samp
     """Test get_activity_details returns comprehensive data."""
     mock_coros_client.get_activity_details.return_value = sample_activity_details
 
-    async def mock_get_client(ctx):
-        return mock_coros_client
-
-    with patch("coros_mcp.activities.get_client", mock_get_client):
-        result = await app_with_activities.call_tool(
-            "get_activity_details",
-            {"activity_id": "abc123"}
-        )
+    result = await app_with_activities.call_tool(
+        "get_activity_details",
+        {"activity_id": "abc123"}
+    )
 
     text = get_tool_result_text(result)
     data = json.loads(text)
@@ -145,14 +114,10 @@ async def test_get_activity_details_with_laps(app_with_activities, mock_coros_cl
     """Test get_activity_details includes lap data."""
     mock_coros_client.get_activity_details.return_value = sample_activity_details
 
-    async def mock_get_client(ctx):
-        return mock_coros_client
-
-    with patch("coros_mcp.activities.get_client", mock_get_client):
-        result = await app_with_activities.call_tool(
-            "get_activity_details",
-            {"activity_id": "abc123"}
-        )
+    result = await app_with_activities.call_tool(
+        "get_activity_details",
+        {"activity_id": "abc123"}
+    )
 
     text = get_tool_result_text(result)
     data = json.loads(text)
@@ -167,14 +132,10 @@ async def test_get_activity_details_with_hr_zones(app_with_activities, mock_coro
     """Test get_activity_details includes heart rate zones."""
     mock_coros_client.get_activity_details.return_value = sample_activity_details
 
-    async def mock_get_client(ctx):
-        return mock_coros_client
-
-    with patch("coros_mcp.activities.get_client", mock_get_client):
-        result = await app_with_activities.call_tool(
-            "get_activity_details",
-            {"activity_id": "abc123"}
-        )
+    result = await app_with_activities.call_tool(
+        "get_activity_details",
+        {"activity_id": "abc123"}
+    )
 
     text = get_tool_result_text(result)
     data = json.loads(text)
@@ -187,14 +148,10 @@ async def test_get_activity_details_with_weather(app_with_activities, mock_coros
     """Test get_activity_details includes weather data."""
     mock_coros_client.get_activity_details.return_value = sample_activity_details
 
-    async def mock_get_client(ctx):
-        return mock_coros_client
-
-    with patch("coros_mcp.activities.get_client", mock_get_client):
-        result = await app_with_activities.call_tool(
-            "get_activity_details",
-            {"activity_id": "abc123"}
-        )
+    result = await app_with_activities.call_tool(
+        "get_activity_details",
+        {"activity_id": "abc123"}
+    )
 
     text = get_tool_result_text(result)
     data = json.loads(text)
@@ -207,14 +164,10 @@ async def test_get_activity_download_url_default_format(app_with_activities, moc
     """Test get_activity_download_url with default FIT format."""
     mock_coros_client.get_activity_download_url.return_value = "https://example.com/activity.fit"
 
-    async def mock_get_client(ctx):
-        return mock_coros_client
-
-    with patch("coros_mcp.activities.get_client", mock_get_client):
-        result = await app_with_activities.call_tool(
-            "get_activity_download_url",
-            {"activity_id": "abc123"}
-        )
+    result = await app_with_activities.call_tool(
+        "get_activity_download_url",
+        {"activity_id": "abc123"}
+    )
 
     text = get_tool_result_text(result)
     data = json.loads(text)
@@ -222,7 +175,6 @@ async def test_get_activity_download_url_default_format(app_with_activities, moc
     assert data["format"] == "fit"
     assert data["download_url"] == "https://example.com/activity.fit"
 
-    # Verify FIT format was used
     call_args = mock_coros_client.get_activity_download_url.call_args
     assert call_args[0][1] == FileType.FIT
 
@@ -232,20 +184,15 @@ async def test_get_activity_download_url_gpx_format(app_with_activities, mock_co
     """Test get_activity_download_url with GPX format."""
     mock_coros_client.get_activity_download_url.return_value = "https://example.com/activity.gpx"
 
-    async def mock_get_client(ctx):
-        return mock_coros_client
-
-    with patch("coros_mcp.activities.get_client", mock_get_client):
-        result = await app_with_activities.call_tool(
-            "get_activity_download_url",
-            {"activity_id": "abc123", "file_format": "gpx"}
-        )
+    result = await app_with_activities.call_tool(
+        "get_activity_download_url",
+        {"activity_id": "abc123", "file_format": "gpx"}
+    )
 
     text = get_tool_result_text(result)
     data = json.loads(text)
     assert data["format"] == "gpx"
 
-    # Verify GPX format was used
     call_args = mock_coros_client.get_activity_download_url.call_args
     assert call_args[0][1] == FileType.GPX
 
@@ -255,14 +202,10 @@ async def test_get_activity_download_url_tcx_format(app_with_activities, mock_co
     """Test get_activity_download_url with TCX format."""
     mock_coros_client.get_activity_download_url.return_value = "https://example.com/activity.tcx"
 
-    async def mock_get_client(ctx):
-        return mock_coros_client
-
-    with patch("coros_mcp.activities.get_client", mock_get_client):
-        result = await app_with_activities.call_tool(
-            "get_activity_download_url",
-            {"activity_id": "abc123", "file_format": "tcx"}
-        )
+    result = await app_with_activities.call_tool(
+        "get_activity_download_url",
+        {"activity_id": "abc123", "file_format": "tcx"}
+    )
 
     call_args = mock_coros_client.get_activity_download_url.call_args
     assert call_args[0][1] == FileType.TCX
@@ -273,14 +216,10 @@ async def test_get_activities_summary(app_with_activities, mock_coros_client, sa
     """Test get_activities_summary returns aggregated stats."""
     mock_coros_client.get_activities_list.return_value = sample_activities_list
 
-    async def mock_get_client(ctx):
-        return mock_coros_client
-
-    with patch("coros_mcp.activities.get_client", mock_get_client):
-        result = await app_with_activities.call_tool(
-            "get_activities_summary",
-            {"days": 7}
-        )
+    result = await app_with_activities.call_tool(
+        "get_activities_summary",
+        {"days": 7}
+    )
 
     text = get_tool_result_text(result)
     data = json.loads(text)
@@ -288,7 +227,7 @@ async def test_get_activities_summary(app_with_activities, mock_coros_client, sa
     assert data["period"]["days"] == 7
     assert "totals" in data
     assert data["totals"]["activity_count"] == 2
-    assert data["totals"]["total_distance_meters"] == 8000.0  # 5000 + 3000
+    assert data["totals"]["total_distance_meters"] == 8000.0
 
 
 @pytest.mark.asyncio
@@ -296,14 +235,10 @@ async def test_get_activities_summary_by_sport(app_with_activities, mock_coros_c
     """Test get_activities_summary groups by sport type."""
     mock_coros_client.get_activities_list.return_value = sample_activities_list
 
-    async def mock_get_client(ctx):
-        return mock_coros_client
-
-    with patch("coros_mcp.activities.get_client", mock_get_client):
-        result = await app_with_activities.call_tool(
-            "get_activities_summary",
-            {"days": 7}
-        )
+    result = await app_with_activities.call_tool(
+        "get_activities_summary",
+        {"days": 7}
+    )
 
     text = get_tool_result_text(result)
     data = json.loads(text)
@@ -317,32 +252,23 @@ async def test_get_activities_summary_days_limit(app_with_activities, mock_coros
     """Test get_activities_summary limits days to 30."""
     mock_coros_client.get_activities_list.return_value = sample_activities_list
 
-    async def mock_get_client(ctx):
-        return mock_coros_client
-
-    with patch("coros_mcp.activities.get_client", mock_get_client):
-        result = await app_with_activities.call_tool(
-            "get_activities_summary",
-            {"days": 60}  # Exceeds max of 30
-        )
+    result = await app_with_activities.call_tool(
+        "get_activities_summary",
+        {"days": 60}
+    )
 
     text = get_tool_result_text(result)
     data = json.loads(text)
-    # Days should be capped at 30
     assert data["period"]["days"] == 30
 
 
 @pytest.mark.asyncio
-async def test_get_activities_not_logged_in(app_with_activities):
+async def test_get_activities_not_logged_in(app_with_activities, mock_get_client):
     """Test get_activities raises error when not logged in."""
+    mock_get_client.side_effect = ValueError("No COROS session. Call coros_login() first.")
 
-    async def mock_get_client_no_session(ctx):
-        raise ValueError("No COROS session. Call coros_login() first.")
-
-    with patch("coros_mcp.activities.get_client", mock_get_client_no_session):
-        # FastMCP wraps tool errors in ToolError
-        with pytest.raises(ToolError) as exc_info:
-            await app_with_activities.call_tool("get_activities", {})
+    with pytest.raises(ToolError) as exc_info:
+        await app_with_activities.call_tool("get_activities", {})
 
     assert "session" in str(exc_info.value).lower()
 
@@ -352,21 +278,15 @@ async def test_get_activity_details_api_error(app_with_activities, mock_coros_cl
     """Test get_activity_details handles API errors."""
     mock_coros_client.get_activity_details.side_effect = Exception("API Error")
 
-    async def mock_get_client(ctx):
-        return mock_coros_client
-
-    with patch("coros_mcp.activities.get_client", mock_get_client):
-        # FastMCP wraps tool errors in ToolError
-        with pytest.raises(ToolError) as exc_info:
-            await app_with_activities.call_tool(
-                "get_activity_details",
-                {"activity_id": "invalid_id"}
-            )
+    with pytest.raises(ToolError) as exc_info:
+        await app_with_activities.call_tool(
+            "get_activity_details",
+            {"activity_id": "invalid_id"}
+        )
 
     assert "error" in str(exc_info.value).lower()
 
 
-# Test tool registration
 def test_activity_tools_registered(app_with_activities):
     """Test that all activity tools are registered."""
     tools = app_with_activities._tool_manager._tools
@@ -383,7 +303,6 @@ def test_activity_tools_registered(app_with_activities):
         assert tool_name in tool_names, f"Tool {tool_name} not registered"
 
 
-# Test date formatting helper
 def test_format_date():
     """Test _format_date helper function."""
     from coros_mcp.activities import _format_date
@@ -394,7 +313,6 @@ def test_format_date():
     assert _format_date(0) is None
 
 
-# Test sport name helper
 def test_get_sport_name():
     """Test _get_sport_name helper function."""
     from coros_mcp.activities import _get_sport_name
@@ -406,4 +324,4 @@ def test_get_sport_name():
     assert _get_sport_name(9) == "Pool Swim"
     assert _get_sport_name(16) == "Strength"
     assert _get_sport_name(100) == "Other"
-    assert _get_sport_name(999) == "Sport_999"  # Unknown sport type
+    assert _get_sport_name(999) == "Sport_999"
