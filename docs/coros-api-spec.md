@@ -536,6 +536,143 @@ For **existing workout** recalculation: same structure but with real `authorId`,
 
 Plans are templates that can be "executed" (applied to the calendar). A plan contains entities (which day a workout falls on, as relative `dayNo` offsets) and programs (the workout content).
 
+**Plan lifecycle:**
+1. **Create** — `POST plan/add` with initial workouts
+2. **Edit** — `POST plan/update` to rename, add/move/remove workouts
+3. **Activate** — `POST schedule/executeSubPlan` to apply to calendar starting on a date
+4. **Delete** — `POST plan/delete` to remove template plans
+
+Once executed, the plan is **copied** into the master schedule as a `subPlan`. The template and scheduled copy are independent — deleting the template does NOT remove the scheduled workouts.
+
+### POST training/plan/add
+
+Create a new training plan template with initial workouts.
+
+**Request body:**
+```json
+{
+  "name": "N1117",
+  "overview": "PLAN NAME i create",
+  "entities": [
+    {
+      "happenDay": "",
+      "idInPlan": 1,
+      "sortNo": 0,
+      "dayNo": 0,
+      "sortNoInPlan": 0,
+      "sortNoInSchedule": 0
+    },
+    {
+      "happenDay": "",
+      "idInPlan": 2,
+      "sortNo": 0,
+      "dayNo": 13,
+      "sortNoInPlan": 0,
+      "sortNoInSchedule": 0
+    }
+  ],
+  "programs": [
+    {
+      "idInPlan": 1,
+      "name": "first session first day of plan",
+      "sportType": 1,
+      "subType": 0,
+      "totalSets": 1,
+      "sets": 1,
+      "exerciseNum": "",
+      "targetType": "",
+      "targetValue": "",
+      "version": 0,
+      "simple": true,
+      "exercises": [...],
+      "access": 1,
+      "essence": 0,
+      "estimatedTime": 0,
+      "originEssence": 0,
+      "overview": "",
+      "type": 0,
+      "unit": 0,
+      "pbVersion": 2,
+      "sourceId": "425706707117850624",
+      "sourceUrl": "https://d31oxp44ddzkyk.cloudfront.net/source/source_default/0/ee2ec19837ba4093b7c8617eb2f9b1f5.jpg",
+      "referExercise": {"intensityType": 0, "hrType": 0, "valueType": 0},
+      "poolLengthId": 1,
+      "poolLength": 2500,
+      "poolLengthUnit": 2,
+      "distance": "78875.00",
+      "duration": 300,
+      "trainingLoad": 14,
+      "pitch": 0,
+      "exerciseBarChart": [...],
+      "distanceDisplayUnit": 1
+    }
+  ],
+  "weekStages": [],
+  "maxIdInPlan": 2,
+  "totalDay": 14,
+  "unit": 0,
+  "sourceId": "425868142590476289",
+  "sourceUrl": "https://d31oxp44ddzkyk.cloudfront.net/source/source_default/0/32e31ac51037460b838a431efd8a33e1.jpg",
+  "minWeeks": 1,
+  "maxWeeks": 1,
+  "region": 3,
+  "pbVersion": 2,
+  "versionObjects": [
+    {"id": 1, "status": 1},
+    {"id": 2, "status": 1}
+  ]
+}
+```
+
+**Key fields:**
+- `entities[].dayNo` — relative day offset from plan start (0-indexed). `happenDay` is empty string for templates.
+- `entities[].idInPlan` — sequential, matches corresponding program's `idInPlan`
+- `programs[]` — full program objects with exercises, pre-calculated via `program/calculate`
+- `maxIdInPlan` — highest `idInPlan` used (must match)
+- `totalDay` — total plan duration in days (derived from last entity's `dayNo + 1`)
+- `minWeeks`/`maxWeeks` — number of weeks (`ceil(totalDay / 7)`)
+- `region` — 3=EU, 1=global, 2=CN
+- `versionObjects` — one entry per program with `status: 1` (create)
+
+**Response data:** The new plan's ID as a string:
+```json
+{
+  "apiCode": "63A6DEBE",
+  "data": "475404352518013228",
+  "message": "OK",
+  "result": "0000"
+}
+```
+
+### POST training/plan/update
+
+Update an existing plan template: rename, add/move/remove workouts. Sends the **full plan object** (from `plan/detail`) with modifications.
+
+**Request body:** Full plan object with modifications. Key fields:
+
+| Field | Notes |
+|-------|-------|
+| `id` | Plan ID |
+| `version` | Must match current version (optimistic concurrency) |
+| `overview` | Updated plan description/name |
+| `entities` | Full entity list (all entities, not just changed ones) |
+| `programs` | Full program list (all programs) |
+| `maxIdInPlan` | Updated if new program added |
+| `versionObjects` | Describes what changed |
+
+**versionObjects patterns for plan/update:**
+
+| Operation | versionObjects | Notes |
+|-----------|---------------|-------|
+| **Rename only** | `[]` (empty) | Only `overview`/`name` changed |
+| **Add new workout** | `[{"id": 3, "status": 1, "onlyId": "uuid", "type": 0}]` | New program with `idInPlan=3` |
+| **Move workout** | `[{"id": "3", "planProgramId": "3", "planId": "...", "status": 2, "onlyId": "uuid", "type": 0}]` | Entity's `dayNo` changed |
+| **Add existing workout** | `[{"id": 4, "status": 1, "onlyId": "uuid", "type": 0}]` | Program object copied from library with full exercises |
+
+**Note:** `onlyId` is a UUID generated client-side for deduplication.
+
+**Response:** Standard envelope with `result: "0000"` on success.
+
 ### POST training/plan/query
 
 List training plans.
@@ -673,7 +810,17 @@ Apply a plan template to the calendar starting on a specific date.
 
 **Response:** Standard envelope.
 
-This converts a template plan into an active scheduled plan. After execution, the plan appears in `statusList: [1]` queries with `happenDay` populated on entities.
+**What happens server-side:**
+1. The template plan is **copied** into the master schedule plan (new IDs assigned)
+2. Each entity gets `happenDay` computed from `startDay + dayNo`
+3. The copy gets a `subPlan` entry in the master schedule with:
+   - `originId` / `sourcePlanId` → reference to original template
+   - `planIdIndex` → unique incrementing index for entity namespacing
+   - `startDay` / `endDay` → calendar date range
+   - `executeStatus: 1` → active
+4. The template itself is NOT modified (stays as draft, can be re-used)
+
+After execution, the plan appears in `schedule/query` responses within `subPlans[]`, and its workouts appear as regular entities with `happenDay` populated.
 
 ### POST training/plan/delete
 
@@ -702,6 +849,14 @@ List workout templates (the workout library).
 ```
 
 **Response data:** Array of program objects (same structure as programs in plans, with full exercises).
+
+### GET training/program/detail
+
+Get a single workout program with full exercises (used when adding an existing workout to a plan).
+
+**Query params:** `id` (program ID), `supportRestExercise: "1"`
+
+**Response data:** Single program object with full exercises (same structure as programs in plan/detail).
 
 ---
 
