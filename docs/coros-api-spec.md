@@ -799,21 +799,38 @@ Steps do **NOT** have: `programId`.
 | 3 | Cooldown |
 | 4 | Recovery |
 
-### Target Type Codes
+### Target Type Codes (HAR-verified)
 
-| Code | Type | Value unit |
-|------|------|------------|
-| 0 | None | — |
-| 2 | Duration | Seconds |
-| 5 | Distance | Meters |
+| Code | Type | Value encoding | Sports |
+|------|------|----------------|--------|
+| `0` | None | — | All |
+| `1` | Open / lap button | value=0 | Running (cooldowns) |
+| `2` | Duration | Seconds | All |
+| `3` | Reps | Rep count | Strength (sport=4), Climbing (sport=7) |
+| `5` | Distance | **Centimeters** (÷100 = meters) | Running, Cycling, Swimming |
+| `9` | Routes/attempts | Count | Climbing (sport=7) |
 
-### Target Display Unit
+**Distance encoding:** Value is always in **centimeters**, regardless of `targetDisplayUnit`.
+- 400m → `targetValue: 40000`
+- 2.34km → `targetValue: 234000`
+- 1.1 miles → `targetValue: 177028` (1.1 × 1609.34 × 100)
 
-| Code | Unit |
-|------|------|
-| 0 | Seconds |
-| 1 | Meters |
-| 2 | Kilometers |
+**Duration encoding:** Value is always in **seconds**, `targetDisplayUnit` is always 0.
+- 8 minutes → `targetValue: 480`
+- 1h 2min 3sec → `targetValue: 3723`
+
+### Target Display Unit (HAR-verified)
+
+Controls the UI display unit. Does NOT affect value encoding (always cm for distance, seconds for duration).
+
+| Code | Unit | Used with |
+|------|------|-----------|
+| `0` | Seconds | Duration (targetType=2) |
+| `1` | Kilometers | Distance (targetType=5) |
+| `2` | Meters | Distance (targetType=5) |
+| `3` | Miles | Distance (targetType=5) |
+
+**When creating running workouts:** use `targetDisplayUnit: 2` (meters) for short intervals (e.g. 400m), `targetDisplayUnit: 1` (km) for longer efforts.
 
 ### Rest Type
 
