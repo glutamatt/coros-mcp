@@ -69,11 +69,11 @@ def register_tools(app):
                 "name": p.get("name"),
                 "sport_type": get_sport_name(p.get("sportType", 0)),
                 "date": coros_to_date(entity.get("happenDay")),
-                "planned_distance": p.get("planDistance"),
-                "planned_duration": p.get("planDuration"),
+                "planned_distance": format_distance(p.get("planDistance", 0)),
+                "planned_duration": format_duration(p.get("planDuration", 0)),
                 "planned_load": p.get("planTrainingLoad"),
-                "actual_distance": p.get("actualDistance"),
-                "actual_duration": p.get("actualDuration"),
+                "actual_distance": format_distance(p.get("actualDistance", 0)),
+                "actual_duration": format_duration(p.get("actualDuration", 0)),
                 "actual_load": p.get("actualTrainingLoad"),
                 "status": _workout_status(p),
             }
@@ -154,10 +154,10 @@ def register_tools(app):
         # Today's summary
         today_sum = data.get("todayTrainingSum", {})
         today_data = {
-            "actual_distance": today_sum.get("actualDistance"),
-            "planned_distance": today_sum.get("planDistance"),
-            "actual_duration": today_sum.get("actualDuration"),
-            "planned_duration": today_sum.get("planDuration"),
+            "actual_distance": format_distance(today_sum.get("actualDistance", 0)),
+            "planned_distance": format_distance(today_sum.get("planDistance", 0)),
+            "actual_duration": format_duration(today_sum.get("actualDuration", 0)),
+            "planned_duration": format_duration(today_sum.get("planDuration", 0)),
             "actual_load": today_sum.get("actualTrainingLoad"),
             "planned_load": today_sum.get("planTrainingLoad"),
             "actual_ati": today_sum.get("actualAti"),
@@ -171,10 +171,10 @@ def register_tools(app):
             ws = w.get("weekTrainSum", {})
             weeks.append(_clean_nones({
                 "week_start": coros_to_date(w.get("firstDayInWeek")),
-                "actual_distance": ws.get("actualDistance"),
-                "planned_distance": ws.get("planDistance"),
-                "actual_duration": ws.get("actualDuration"),
-                "planned_duration": ws.get("planDuration"),
+                "actual_distance": format_distance(ws.get("actualDistance", 0)),
+                "planned_distance": format_distance(ws.get("planDistance", 0)),
+                "actual_duration": format_duration(ws.get("actualDuration", 0)),
+                "planned_duration": format_duration(ws.get("planDuration", 0)),
                 "actual_load": ws.get("actualTrainingLoad"),
                 "planned_load": ws.get("planTrainingLoad"),
                 "actual_load_ratio": ws.get("actualTrainingLoadRatio"),
@@ -189,10 +189,10 @@ def register_tools(app):
             ds = d.get("dayTrainSum", {})
             days.append(_clean_nones({
                 "date": coros_to_date(d.get("happenDay")),
-                "actual_distance": ds.get("actualDistance"),
-                "planned_distance": ds.get("planDistance"),
-                "actual_duration": ds.get("actualDuration"),
-                "planned_duration": ds.get("planDuration"),
+                "actual_distance": format_distance(ds.get("actualDistance", 0)),
+                "planned_distance": format_distance(ds.get("planDistance", 0)),
+                "actual_duration": format_duration(ds.get("actualDuration", 0)),
+                "planned_duration": format_duration(ds.get("planDuration", 0)),
                 "actual_load": ds.get("actualTrainingLoad"),
                 "planned_load": ds.get("planTrainingLoad"),
             }))

@@ -211,6 +211,10 @@ async def test_create_workout(app_with_workouts, mock_coros_client):
     assert update_args["versionObjects"][0]["status"] == 1  # 1 = new
     assert update_args["entities"][0]["idInPlan"] == 11  # integer
 
+    # Verify distance converted from meters to km and unit set correctly
+    assert update_args["programs"][0]["distance"] == "10.00"  # 10000m → 10.00 km
+    assert update_args["programs"][0]["distanceDisplayUnit"] == 2  # 2 = km
+
 
 @pytest.mark.asyncio
 async def test_create_workout_invalid_sport(app_with_workouts, mock_coros_client):

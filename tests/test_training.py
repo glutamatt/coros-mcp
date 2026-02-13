@@ -62,8 +62,8 @@ async def test_get_plan_adherence(app_with_training, mock_coros_client):
     text = get_tool_result_text(result)
     data = json.loads(text)
 
-    assert data["today"]["actual_distance"] == 5000
-    assert data["today"]["planned_distance"] == 8000
+    assert data["today"]["actual_distance"] == "5.0 km"
+    assert data["today"]["planned_distance"] == "8.0 km"
     assert data["today"]["actual_load"] == 45
 
     assert len(data["weekly"]) == 1
