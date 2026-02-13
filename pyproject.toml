@@ -25,5 +25,11 @@ dev-dependencies = [
     "pytest-timeout>=2.3.1",
 ]
 
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+asyncio_mode = "auto"
+# Spec tests hit real COROS API — run explicitly: pytest tests/spec/ -v
+addopts = "--ignore=tests/spec"
+
 [tool.uv.sources]
 coros-mcp = { workspace = true }

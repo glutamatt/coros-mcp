@@ -52,3 +52,56 @@ def calculate_workout(
         json_data=payload,
     )
     return response["data"]
+
+
+def query_programs(
+    client: CorosClient,
+    sport_type: int = 0,
+    start_no: int = 0,
+    limit: int = 10,
+) -> Any:
+    """
+    List workout templates from the workout library.
+
+    POST training/program/query
+
+    Args:
+        sport_type: Filter by sport (0=all)
+        start_no: Pagination offset
+        limit: Page size
+
+    Returns:
+        List of program objects with exercises
+    """
+    response = client.make_request(
+        "POST",
+        "training/program/query",
+        json_data={
+            "name": "",
+            "supportRestExercise": 1,
+            "startNo": start_no,
+            "limitSize": limit,
+            "sportType": sport_type,
+        },
+    )
+    return response["data"]
+
+
+def get_program_detail(client: CorosClient, program_id: str) -> Dict[str, Any]:
+    """
+    Get a single workout program with full exercises.
+
+    GET training/program/detail
+
+    Args:
+        program_id: Program ID string
+
+    Returns:
+        Program object with full exercises
+    """
+    response = client.make_request(
+        "GET",
+        "training/program/detail",
+        params={"id": program_id, "supportRestExercise": "1"},
+    )
+    return response["data"]

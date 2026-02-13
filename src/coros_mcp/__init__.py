@@ -23,6 +23,7 @@ from coros_mcp import analysis
 from coros_mcp import training
 from coros_mcp import workouts
 from coros_mcp import profile
+from coros_mcp import plans
 
 
 def create_app() -> FastMCP:
@@ -40,6 +41,7 @@ def create_app() -> FastMCP:
     app = training.register_tools(app)
     app = workouts.register_tools(app)
     app = profile.register_tools(app)
+    app = plans.register_tools(app)
 
     return app
 

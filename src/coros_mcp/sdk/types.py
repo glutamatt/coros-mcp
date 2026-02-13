@@ -56,10 +56,15 @@ class TargetType(IntEnum):
 
 
 class TargetDisplayUnit(IntEnum):
-    """Display unit for exercise target values."""
+    """Display unit for exercise target values.
+
+    Controls UI display. Value encoding is always cm for distance, seconds for duration.
+    HAR-verified: 0=seconds, 1=km, 2=meters, 3=miles.
+    """
     SECONDS = 0
-    METERS = 1
-    KILOMETERS = 2
+    KILOMETERS = 1
+    METERS = 2
+    MILES = 3
 
 
 class RestType(IntEnum):
