@@ -78,8 +78,8 @@ Get full account profile including biometrics and training zones.
   "birthday": 19900101,
   "sex": 1,
   "countryCode": "FR",
-  "stature": 180,
-  "weight": 75,
+  "stature": 183.0,
+  "weight": 75.0,
   "maxHr": 190,
   "rhr": 52,
   "unit": 0,
@@ -219,7 +219,7 @@ Main fitness dashboard summary.
     "rhr": 52, "lthr": 165, "ltsp": 285,
     "sleepHrvData": {
       "sleepHrvList": [
-        {"happenDay": 20260211, "avgSleepHrv": 50, "sleepHrvBase": 49, "sleepHrvSd": 9}
+        {"happenDay": 20260211, "sleepHrvIntervalList": [5, 61, 69, 83]}
       ]
     }
   }
@@ -824,7 +824,20 @@ Steps do **NOT** have: `programId`.
 
 ### Intensity Fields (HAR-verified)
 
-Intensity defines the target effort for a step. Three modes:
+Intensity defines the target effort for a step.
+
+#### intensityType codes
+
+| Code | Mode | Notes |
+|------|------|-------|
+| `0` | None | No intensity target |
+| `2` | Heart rate | BPM range, uses `hrType` for zone system |
+| `3` | Pace | Seconds/km × 1000, uses `intensityDisplayUnit` for UI unit |
+| `8` | Speed/pace (other sports) | Same encoding as type 3 (×1000), seen on cycling/swim templates |
+| `1` | Cadence/speed? | Seen on strength templates, values 0 or 4536 |
+| `10` | Open/RPE? | Seen on some templates, values always 0 |
+
+For running workouts, we only use types `0`, `2`, and `3`.
 
 #### No intensity (default)
 
@@ -843,7 +856,7 @@ Intensity defines the target effort for a step. Three modes:
 }
 ```
 
-#### HR zone target
+#### HR zone target (intensityType=2)
 
 Set a heart rate range for the step.
 
@@ -868,14 +881,28 @@ Set a heart rate range for the step.
 | `intensityValue` | BPM low | e.g. 150 |
 | `intensityValueExtend` | BPM high | e.g. 158 |
 | `intensityMultiplier` | `0` | No multiplier for HR |
-| `intensityDisplayUnit` | `0` | Integer 0 |
-| `intensityCustom` | `1` = % of max HR, `2` = custom BPM range, `3` = % of reserve | Determines how % values map |
-| `intensityPercent` | % × 1000 | e.g. 91000 = 91% of max HR |
+| `intensityDisplayUnit` | `0` | Always 0 for HR |
+| `intensityCustom` | `2` | See below |
+| `intensityPercent` | % × 1000 | e.g. 91000 = 91% |
 | `intensityPercentExtend` | % × 1000 | e.g. 95000 = 95% |
 | `isIntensityPercent` | `true` | Display as percentage |
-| `hrType` | `2` = %maxHR zones, `3` = LTHR zones | Which zone system |
+| `hrType` | zone system | See below |
 
-#### Pace target
+**`hrType` — HR zone system (HAR-verified):**
+
+| hrType | Zone system | Example |
+|--------|------------|---------|
+| `1` | % of max HR | value=114 (60% of 190 maxHR), intensityPercent=61000 |
+| `2` | % of HR reserve | value=154 (75% HRR), intensityPercent=75000 |
+| `3` | LTHR zones | value=150 (LTHR-based zone boundary) |
+
+**`intensityCustom` for HR:**
+- `1` = zone 1 (low)
+- `2` = zone 2 (moderate) / custom range
+- `3` = zone 3 (high)
+- `6` = seen with LTHR zones (hrType=3)
+
+#### Pace target (intensityType=3)
 
 Set a pace range for the step.
 
@@ -894,20 +921,37 @@ Set a pace range for the step.
 }
 ```
 
+**Value encoding is always seconds/km × 1000**, regardless of display unit.
+The COROS UI converts min/mile and sec/100m inputs to sec/km internally.
+
 | Field | Value | Notes |
 |-------|-------|-------|
 | `intensityType` | `3` | Pace mode |
-| `intensityValue` | pace × 1000 | 300000 = 5:00/km (300s × 1000) |
-| `intensityValueExtend` | pace × 1000 | 360000 = 6:00/km |
+| `intensityValue` | sec/km × 1000 | 300000 = 5:00/km |
+| `intensityValueExtend` | sec/km × 1000 | 360000 = 6:00/km |
 | `intensityMultiplier` | `1000` | Always 1000 for pace |
-| `intensityDisplayUnit` | `"1"` | **String** `"1"` (not int!) |
+| `intensityDisplayUnit` | display unit | See table below |
 | `intensityCustom` | `0` | |
 | `intensityPercent` | % of LTSP × 1000 | 94000 = 94% of threshold pace |
 | `intensityPercentExtend` | % of LTSP × 1000 | |
 | `isIntensityPercent` | `false` | Display as absolute pace |
 | `hrType` | `0` | Not HR mode |
 
-**Key quirk:** `intensityDisplayUnit` is a **string** `"1"` for pace, but an **integer** `0` for HR and no-intensity. This is confirmed across multiple HAR captures.
+**`intensityDisplayUnit` — pace unit selector (HAR-verified with labeled workouts):**
+
+| Value | Unit | Example: 5:00/km entered as... | Stored as |
+|-------|------|-------------------------------|-----------|
+| `"1"` | **min/km** | 5:00/km | 300000 |
+| `"2"` | **min/mile** | 8:02/mi → converted | 497000 (≈497s/km) |
+| `"3"` | **sec/100m** | 30s/100m → converted | 300000 (=300s/km) |
+
+**Note:** In request payloads this is a **string** (`"1"`, `"2"`, `"3"`). In API responses it comes back as **int** (`1`, `2`, `3`). When creating workouts, send as string.
+
+**Reading pace from older/template workouts:** Some workout templates from the library (`training/program/query`) have `intensityMultiplier=0` and store `intensityValue` as raw seconds (not ×1000). Detect via:
+- `intensityMultiplier == 1000`: value is sec/km × 1000 → divide by 1000
+- `intensityMultiplier == 0` or absent: value is raw sec/km
+
+**When creating workouts**, always use multiplier=1000, displayUnit=`"1"` (min/km).
 
 ### Exercise Templates (Running)
 
