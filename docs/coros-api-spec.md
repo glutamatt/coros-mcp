@@ -468,7 +468,7 @@ Preview training load before creating a workout. Lean payload — no userId/auth
 }
 ```
 
-Note: `distance` is a **string** with 2 decimals, in meters.
+Note: `distance` is a **string** with 2 decimals, in **centimeters** (÷100 = meters).
 
 ### POST training/program/calculate
 

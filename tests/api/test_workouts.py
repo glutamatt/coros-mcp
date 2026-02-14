@@ -29,7 +29,7 @@ def _mock_schedule():
 def test_create_workout(mock_workouts, mock_training):
     mock_training.get_training_schedule.return_value = _mock_schedule()
     mock_workouts.calculate_workout.return_value = {
-        "planDistance": 10000,
+        "planDistance": 1000000,  # centimeters → 10 km
         "planDuration": 3600,
         "planTrainingLoad": 85,
         "planPitch": 0,
@@ -54,6 +54,7 @@ def test_create_workout(mock_workouts, mock_training):
     assert result["workout_id"] == "11"  # maxIdInPlan=10 + 1
     assert result["name"] == "Tempo Run"
     assert result["date"] == "2026-02-15"
+    assert result["estimated_distance"] == "10.0 km"
     assert result["estimated_load"] == 85
 
     # Verify calculate was called
@@ -69,7 +70,7 @@ def test_create_workout(mock_workouts, mock_training):
 def test_create_workout_api_error(mock_workouts, mock_training):
     mock_training.get_training_schedule.return_value = _mock_schedule()
     mock_workouts.calculate_workout.return_value = {
-        "planDistance": 10000, "planDuration": 3600, "planTrainingLoad": 85,
+        "planDistance": 1000000, "planDuration": 3600, "planTrainingLoad": 85,
         "planPitch": 0, "exerciseBarChart": [],
     }
     mock_training.update_training_schedule.return_value = {
@@ -89,7 +90,7 @@ def test_create_workout_api_error(mock_workouts, mock_training):
 def test_estimate_workout(mock_workouts, mock_training):
     mock_training.get_training_schedule.return_value = _mock_schedule()
     mock_workouts.estimate_workout.return_value = {
-        "distance": "10000.00",
+        "distance": "1000000.00",  # centimeters → 10 km
         "duration": 3600,
         "trainingLoad": 85,
     }
@@ -103,7 +104,7 @@ def test_estimate_workout(mock_workouts, mock_training):
     )
 
     assert result["estimated_load"] == 85
-    assert "10.0 km" in result["estimated_distance"]
+    assert result["estimated_distance"] == "10.0 km"
 
 
 @patch("coros_mcp.api.workouts.sdk_training")

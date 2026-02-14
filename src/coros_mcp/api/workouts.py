@@ -230,10 +230,11 @@ def _resolve_sport(sport: str) -> int:
 def _parse_distance(value) -> float:
     """Parse distance from calculate/estimate response.
 
-    The API returns distance as a string like "90909.00" (in meters).
+    The API returns distance in centimeters (e.g. "180000.00" = 1800 m).
+    Divides by 100 to return meters.
     """
     try:
-        return float(value)
+        return float(value) / 100
     except (TypeError, ValueError):
         return 0.0
 
