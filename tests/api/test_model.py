@@ -33,6 +33,29 @@ class TestExerciseFromDict:
         assert ex.hr_bpm == "160-170"
 
 
+class TestValueUnitsAlias:
+    """LLMs sometimes use {value, units} instead of canonical field names."""
+
+    def test_value_units_minutes(self):
+        ex = Exercise.from_dict({"type": "interval", "value": 2, "units": "minutes", "repeats": 8})
+        assert ex.duration_minutes == 2
+        assert ex.distance_m is None
+
+    def test_value_units_meters(self):
+        ex = Exercise.from_dict({"type": "interval", "value": 800, "units": "meters", "repeats": 6})
+        assert ex.distance_m == 800
+        assert ex.duration_minutes is None
+
+    def test_value_units_km(self):
+        ex = Exercise.from_dict({"type": "interval", "value": 1.5, "units": "km"})
+        assert ex.distance_km == 1.5
+
+    def test_canonical_takes_precedence(self):
+        """If canonical field is already set, {value, units} is ignored."""
+        ex = Exercise.from_dict({"type": "interval", "duration_minutes": 5, "value": 2, "units": "minutes"})
+        assert ex.duration_minutes == 5
+
+
 class TestExerciseValidation:
     def test_valid_warmup(self):
         ex = Exercise(type="warmup", duration_minutes=10)

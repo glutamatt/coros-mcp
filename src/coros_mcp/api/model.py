@@ -31,12 +31,31 @@ class Exercise:
 
     @classmethod
     def from_dict(cls, d: dict) -> "Exercise":
-        """Create an Exercise from a plain dict (as the LLM would provide)."""
+        """Create an Exercise from a plain dict (as the LLM would provide).
+
+        Accepts canonical fields (duration_minutes, distance_m, distance_km)
+        and also normalizes common LLM aliases like {value, units}.
+        """
+        duration = d.get("duration_minutes")
+        dist_m = d.get("distance_m")
+        dist_km = d.get("distance_km")
+
+        # Normalize {value, units} → canonical fields
+        if "value" in d and "units" in d and duration is None and dist_m is None and dist_km is None:
+            val = d["value"]
+            unit = str(d["units"]).lower().strip()
+            if unit in ("minutes", "min", "minute", "mins"):
+                duration = val
+            elif unit in ("meters", "m", "meter"):
+                dist_m = val
+            elif unit in ("km", "kilometers", "kilometer"):
+                dist_km = val
+
         return cls(
             type=d.get("type", "interval"),
-            duration_minutes=d.get("duration_minutes"),
-            distance_m=d.get("distance_m"),
-            distance_km=d.get("distance_km"),
+            duration_minutes=duration,
+            distance_m=dist_m,
+            distance_km=dist_km,
             repeats=d.get("repeats"),
             rest_seconds=d.get("rest_seconds"),
             pace_per_km=d.get("pace_per_km"),
