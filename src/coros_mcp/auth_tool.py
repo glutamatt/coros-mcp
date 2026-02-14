@@ -13,6 +13,7 @@ logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO)
 
 from coros_mcp.coros_platform import coros_login
+from coros_mcp.sdk import auth as sdk_auth
 from coros_mcp.client_factory import (
     get_client,
     set_session_tokens,
@@ -89,7 +90,7 @@ def register_tools(app):
         """
         try:
             client = get_client(ctx)
-            user = client.get_account()
+            user = sdk_auth.get_account(client)
             return json.dumps({
                 "name": user.nickname,
                 "user_id": user.user_id,
@@ -134,12 +135,13 @@ def register_tools(app):
                 "get_activities_summary - Aggregated stats over N days",
             ],
             "dashboard": [
-                "get_fitness_summary - Recovery state, fitness scores, HRV, stamina, training load",
+                "get_fitness_summary - Recovery, fitness scores, HRV, stamina, training load",
+                "get_race_predictions - Predicted race times (5K/10K/half/marathon)",
                 "get_hrv_trend - HRV baseline and daily values for overtraining detection",
                 "get_personal_records - PRs by period (week/month/year/all-time)",
             ],
             "analysis": [
-                "get_training_load_analysis - Daily/weekly load, ATI/CTI, VO2max trend, recommended load",
+                "get_training_load_analysis - Daily/weekly load, ATI/CTI, VO2max trend",
                 "get_sport_statistics - Per-sport volume/load breakdown and intensity distribution",
             ],
             "training_plan": [
@@ -151,6 +153,14 @@ def register_tools(app):
                 "create_workout - Build structured workout and push to watch",
                 "estimate_workout_load - Preview load before committing",
                 "reschedule_workout - Move a workout to a different date",
+            ],
+            "plan_builder": [
+                "list_training_plans - List draft or active plans",
+                "get_training_plan - Full plan detail with workouts",
+                "create_training_plan - Create multi-week plan template",
+                "add_workout_to_plan - Add workout to existing plan",
+                "activate_training_plan - Apply plan to calendar",
+                "delete_training_plans - Remove plan templates",
             ],
             "notes": [
                 "Sleep and stress data are not directly available via API",

@@ -1,9 +1,11 @@
 """
 Tests for COROS MCP training schedule tools.
-"""
 
+Tools are thin wrappers — detailed formatting tests are in tests/api/.
+"""
 import json
 import pytest
+from unittest.mock import patch
 from mcp.server.fastmcp import FastMCP
 
 from coros_mcp import training
@@ -17,8 +19,21 @@ def app_with_training():
     return app
 
 
+@patch("coros_mcp.api.calendar.get_calendar")
 @pytest.mark.asyncio
-async def test_get_training_schedule(app_with_training, mock_coros_client):
+async def test_get_training_schedule(mock_api, app_with_training):
+    mock_api.return_value = {
+        "period": {"start_date": "2026-02-09", "end_date": "2026-02-15"},
+        "plan_name": "Test Plan",
+        "scheduled_workouts": [
+            {"id": "5", "name": "Easy Run", "date": "2026-02-12", "status": "planned"},
+        ],
+        "unplanned_activities": [
+            {"name": "Extra Run", "date": "2026-02-11"},
+        ],
+        "week_stages": [{"week_start": "2026-02-09", "stage": 2}],
+    }
+
     result = await app_with_training.call_tool(
         "get_training_schedule",
         {"start_date": "2026-02-09", "end_date": "2026-02-15"},
@@ -28,32 +43,42 @@ async def test_get_training_schedule(app_with_training, mock_coros_client):
     data = json.loads(text)
 
     assert data["plan_name"] == "Test Plan"
-    assert data["period"]["start_date"] == "2026-02-09"
     assert len(data["scheduled_workouts"]) == 1
-    assert data["scheduled_workouts"][0]["id"] == "5"  # idInPlan, not program.id
     assert data["scheduled_workouts"][0]["name"] == "Easy Run"
-    assert data["scheduled_workouts"][0]["date"] == "2026-02-12"
-    assert data["scheduled_workouts"][0]["status"] == "planned"
-
     assert len(data["unplanned_activities"]) == 1
-    assert data["unplanned_activities"][0]["name"] == "Extra Run"
 
-    assert len(data["week_stages"]) == 1
+    # Verify dates passed through
+    mock_api.assert_called_once()
+    args = mock_api.call_args
+    assert args[0][1] == "2026-02-09"
+    assert args[0][2] == "2026-02-15"
 
 
+@patch("coros_mcp.api.calendar.get_calendar")
 @pytest.mark.asyncio
-async def test_get_training_schedule_defaults(app_with_training, mock_coros_client):
+async def test_get_training_schedule_defaults(mock_api, app_with_training):
     """Test schedule defaults to current week when no dates provided."""
-    result = await app_with_training.call_tool("get_training_schedule", {})
+    mock_api.return_value = {
+        "period": {"start_date": "2026-02-09", "end_date": "2026-02-15"},
+        "scheduled_workouts": [], "unplanned_activities": [], "week_stages": [],
+    }
 
+    result = await app_with_training.call_tool("get_training_schedule", {})
     text = get_tool_result_text(result)
     data = json.loads(text)
     assert "period" in data
-    assert data["period"]["start_date"] is not None
 
 
+@patch("coros_mcp.api.calendar.get_adherence")
 @pytest.mark.asyncio
-async def test_get_plan_adherence(app_with_training, mock_coros_client):
+async def test_get_plan_adherence(mock_api, app_with_training):
+    mock_api.return_value = {
+        "period": {"start_date": "2026-01-14", "end_date": "2026-02-11"},
+        "today": {"actual_distance": "5.0 km", "planned_distance": "8.0 km", "actual_load": 45},
+        "weekly": [{"week_start": "2026-02-03", "actual_load": 300, "planned_load": 350}],
+        "daily": [{"date": "2026-02-10", "actual_load": 85}],
+    }
+
     result = await app_with_training.call_tool(
         "get_plan_adherence",
         {"start_date": "2026-01-14", "end_date": "2026-02-11"},
@@ -62,31 +87,17 @@ async def test_get_plan_adherence(app_with_training, mock_coros_client):
     text = get_tool_result_text(result)
     data = json.loads(text)
 
-    assert data["today"]["actual_distance"] == 5000
-    assert data["today"]["planned_distance"] == 8000
+    assert data["today"]["actual_distance"] == "5.0 km"
     assert data["today"]["actual_load"] == 45
-
     assert len(data["weekly"]) == 1
-    assert data["weekly"][0]["actual_load"] == 300
-    assert data["weekly"][0]["planned_load"] == 350
-
     assert len(data["daily"]) == 1
-    assert data["daily"][0]["date"] == "2026-02-10"
 
 
+@patch("coros_mcp.api.workouts.delete_workout")
 @pytest.mark.asyncio
-async def test_get_plan_adherence_defaults(app_with_training, mock_coros_client):
-    """Test adherence defaults to last 4 weeks."""
-    result = await app_with_training.call_tool("get_plan_adherence", {})
+async def test_delete_scheduled_workout(mock_api, app_with_training):
+    mock_api.return_value = {"success": True, "message": "Workout 'Easy Run' deleted"}
 
-    text = get_tool_result_text(result)
-    data = json.loads(text)
-    assert "period" in data
-
-
-@pytest.mark.asyncio
-async def test_delete_scheduled_workout(app_with_training, mock_coros_client):
-    # workout_id is idInPlan ("5"), not program.id ("prog-sys-id-1")
     result = await app_with_training.call_tool(
         "delete_scheduled_workout",
         {"workout_id": "5", "date": "2026-02-12"},
@@ -97,21 +108,12 @@ async def test_delete_scheduled_workout(app_with_training, mock_coros_client):
     assert data["success"] is True
     assert "Easy Run" in data["message"]
 
-    # Verify delete payload: status 3, planId/planProgramId, empty entities/programs
-    call_args = mock_coros_client.update_training_schedule.call_args
-    payload = call_args[0][0]
-    assert payload["pbVersion"] == 5
-    assert payload["entities"] == []
-    assert payload["programs"] == []
-    assert payload["versionObjects"][0]["id"] == "5"
-    assert payload["versionObjects"][0]["planProgramId"] == "5"
-    assert payload["versionObjects"][0]["planId"] == "460904915775176706"
-    assert payload["versionObjects"][0]["status"] == 3  # status 3 = delete
 
-
+@patch("coros_mcp.api.workouts.delete_workout")
 @pytest.mark.asyncio
-async def test_delete_scheduled_workout_not_found(app_with_training, mock_coros_client):
-    """Test deletion of a workout that doesn't exist in the schedule."""
+async def test_delete_scheduled_workout_not_found(mock_api, app_with_training):
+    mock_api.return_value = {"success": False, "error": "Workout nonexistent not found on 2026-02-12"}
+
     result = await app_with_training.call_tool(
         "delete_scheduled_workout",
         {"workout_id": "nonexistent", "date": "2026-02-12"},
@@ -120,14 +122,13 @@ async def test_delete_scheduled_workout_not_found(app_with_training, mock_coros_
     text = get_tool_result_text(result)
     data = json.loads(text)
     assert data["success"] is False
-    assert "not found" in data["error"].lower()
-    # Should not call update_training_schedule
-    mock_coros_client.update_training_schedule.assert_not_called()
+    assert "not found" in data["error"]
 
 
+@patch("coros_mcp.api.workouts.delete_workout")
 @pytest.mark.asyncio
-async def test_delete_scheduled_workout_failure(app_with_training, mock_coros_client):
-    mock_coros_client.update_training_schedule.side_effect = ValueError("Plan data is illegal.")
+async def test_delete_scheduled_workout_api_error(mock_api, app_with_training):
+    mock_api.side_effect = ValueError("Plan data is illegal.")
 
     result = await app_with_training.call_tool(
         "delete_scheduled_workout",

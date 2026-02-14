@@ -7,7 +7,8 @@ Provides the LoginResult interface matching the garmin_mcp pattern.
 from dataclasses import dataclass
 from typing import Optional
 
-from coros_mcp.coros_client import CorosClient
+from coros_mcp.sdk.client import CorosClient
+from coros_mcp.sdk import auth as sdk_auth
 
 
 @dataclass
@@ -58,7 +59,7 @@ def coros_login(email: str, password: str) -> LoginResult:
     try:
         # Use EU region by default (most users are in Europe)
         client = CorosClient(email=email, password=password, region="eu")
-        user_info = client.login()
+        user_info = sdk_auth.login(client)
 
         # Export tokens for session persistence
         tokens = client.export_token()

@@ -1,9 +1,11 @@
 """
 Tests for COROS MCP profile tool.
-"""
 
+Tools are thin wrappers — detailed formatting tests are in tests/api/.
+"""
 import json
 import pytest
+from unittest.mock import patch
 from mcp.server.fastmcp import FastMCP
 
 from coros_mcp import profile
@@ -17,59 +19,26 @@ def app_with_profile():
     return app
 
 
+@patch("coros_mcp.api.profile.get_athlete_profile")
 @pytest.mark.asyncio
-async def test_get_athlete_profile(app_with_profile, mock_coros_client):
-    result = await app_with_profile.call_tool("get_athlete_profile", {})
+async def test_get_athlete_profile(mock_api, app_with_profile):
+    mock_api.return_value = {
+        "identity": {"nickname": "TestUser", "birthday": "1990-01-01"},
+        "biometrics": {"height_cm": 180, "weight_kg": 75},
+        "thresholds": {"max_hr": 190, "resting_hr": 52, "lthr": 165, "ftp": 250},
+        "hr_zones": [{"zone": 1, "name": "Recovery", "range": "<114 bpm"}],
+        "pace_zones": [{"zone": 1, "name": "Easy", "range": "slower than 6:40/km"}],
+    }
 
+    result = await app_with_profile.call_tool("get_athlete_profile", {})
     text = get_tool_result_text(result)
     data = json.loads(text)
 
     assert data["identity"]["nickname"] == "TestUser"
-    assert data["identity"]["birthday"] == "1990-01-01"
-
     assert data["biometrics"]["height_cm"] == 180
-    assert data["biometrics"]["weight_kg"] == 75
-
-    assert data["physiological"]["max_hr"] == 190
-    assert data["physiological"]["resting_hr"] == 52
-    assert data["physiological"]["lthr"] == 165
-    assert data["physiological"]["ftp"] == 250
-
-    assert "zones" in data
-    assert "heart_rate" in data["zones"]
-    assert "pace" in data["zones"]
-
-
-@pytest.mark.asyncio
-async def test_get_athlete_profile_with_run_scores(app_with_profile, mock_coros_client):
-    result = await app_with_profile.call_tool("get_athlete_profile", {})
-
-    text = get_tool_result_text(result)
-    data = json.loads(text)
-
-    assert "run_scores" in data
-    assert data["run_scores"][0]["sport_type"] == 1
-    assert data["run_scores"][0]["avg_pace"] == 320
-
-
-@pytest.mark.asyncio
-async def test_get_athlete_profile_no_zones(app_with_profile, mock_coros_client):
-    mock_coros_client.get_account_full.return_value = {
-        "userId": "123456",
-        "nickname": "TestUser",
-        "email": "test@test.com",
-        "stature": 170,
-        "weight": 65,
-        "zoneData": {},
-    }
-
-    result = await app_with_profile.call_tool("get_athlete_profile", {})
-
-    text = get_tool_result_text(result)
-    data = json.loads(text)
-
-    # zones dict should be absent when empty
-    assert "zones" not in data
+    assert data["thresholds"]["max_hr"] == 190
+    assert len(data["hr_zones"]) == 1
+    assert len(data["pace_zones"]) == 1
 
 
 def test_profile_tools_registered(app_with_profile):

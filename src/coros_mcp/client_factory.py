@@ -20,7 +20,7 @@ import json
 import logging
 from fastmcp import Context
 
-from coros_mcp.coros_client import CorosClient
+from coros_mcp.sdk.client import CorosClient
 
 logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO)

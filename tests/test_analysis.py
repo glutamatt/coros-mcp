@@ -1,9 +1,11 @@
 """
 Tests for COROS MCP analysis tools.
-"""
 
+Tools are thin wrappers — detailed formatting tests are in tests/api/.
+"""
 import json
 import pytest
+from unittest.mock import patch
 from mcp.server.fastmcp import FastMCP
 
 from coros_mcp import analysis
@@ -17,47 +19,41 @@ def app_with_analysis():
     return app
 
 
+@patch("coros_mcp.api.status.get_training_load")
 @pytest.mark.asyncio
-async def test_get_training_load_analysis(app_with_analysis, mock_coros_client):
+async def test_get_training_load_analysis(mock_api, app_with_analysis):
+    mock_api.return_value = {
+        "recent_days": [{"date": "2026-02-10", "training_load": 85, "vo2max": 52}],
+        "weekly_load": [{"week_start": "2026-02-03", "training_load": 350}],
+        "periodization": [{"week_start": "2026-02-03", "stage": 2}],
+    }
+
     result = await app_with_analysis.call_tool("get_training_load_analysis", {})
-
     text = get_tool_result_text(result)
     data = json.loads(text)
 
-    assert "recent_days" in data
     assert len(data["recent_days"]) == 1
-    assert data["recent_days"][0]["date"] == "2026-02-10"
     assert data["recent_days"][0]["training_load"] == 85
-    assert data["recent_days"][0]["vo2max"] == 52
-
-    assert "weekly_load" in data
-    assert data["weekly_load"][0]["week_start"] == "2026-02-03"
-    assert data["weekly_load"][0]["training_load"] == 350
-
-    assert "rolling_7d_trend" in data
-    assert data["rolling_7d_trend"][0]["vo2max"] == 52
-
-    assert "periodization" in data
-    assert data["periodization"][0]["stage"] == 2
+    assert len(data["weekly_load"]) == 1
 
 
+@patch("coros_mcp.api.status.get_sport_stats")
 @pytest.mark.asyncio
-async def test_get_sport_statistics(app_with_analysis, mock_coros_client):
-    result = await app_with_analysis.call_tool("get_sport_statistics", {})
+async def test_get_sport_statistics(mock_api, app_with_analysis):
+    mock_api.return_value = {
+        "sport_breakdown": [
+            {"sport": "Run", "count": 5, "distance": "45.0 km", "training_load": 350},
+            {"sport": "Strength", "count": 2, "distance": "0.0 km", "training_load": 80},
+        ],
+        "weekly_intensity": [{"low_pct": 60, "medium_pct": 25, "high_pct": 15}],
+    }
 
+    result = await app_with_analysis.call_tool("get_sport_statistics", {})
     text = get_tool_result_text(result)
     data = json.loads(text)
 
-    assert "sport_breakdown" in data
     assert len(data["sport_breakdown"]) == 2
     assert data["sport_breakdown"][0]["sport"] == "Run"
-    assert data["sport_breakdown"][0]["count"] == 5
-    assert data["sport_breakdown"][0]["distance_display"] == "45.0 km"
-    assert data["sport_breakdown"][1]["sport"] == "Strength"
-
-    assert "weekly_intensity" in data
-    assert data["weekly_intensity"][0]["low_pct"] == 60
-    assert data["weekly_intensity"][0]["high_pct"] == 15
 
 
 def test_analysis_tools_registered(app_with_analysis):

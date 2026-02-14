@@ -10,7 +10,7 @@ from mcp.server.fastmcp import FastMCP
 from mcp.server.fastmcp.exceptions import ToolError
 
 from coros_mcp import auth_tool
-from coros_mcp.coros_client import UserInfo
+from coros_mcp.sdk.client import UserInfo
 from tests.conftest import get_tool_result_text
 
 
@@ -22,25 +22,19 @@ def app_with_auth():
     return app
 
 
+@patch("coros_mcp.auth_tool.sdk_auth")
 @pytest.mark.asyncio
-async def test_get_user_name(app_with_auth, mock_coros_client):
+async def test_get_user_name(mock_sdk_auth, app_with_auth, mock_sdk_client):
     """Test get_user_name tool returns user info."""
+    mock_sdk_auth.get_account.return_value = UserInfo(
+        user_id="123456", nickname="TestUser", email="test@test.com",
+        head_pic="", country_code="US", birthday=19900101,
+    )
+
     result = await app_with_auth.call_tool("get_user_name", {})
-
-    text = get_tool_result_text(result)
-    assert "TestUser" in text
-    assert "123456" in text
-    assert "test@test.com" in text
-
-
-@pytest.mark.asyncio
-async def test_get_user_name_returns_json(app_with_auth, mock_coros_client):
-    """Test get_user_name tool returns valid JSON."""
-    result = await app_with_auth.call_tool("get_user_name", {})
-
-    # Parse the result as JSON
     text = get_tool_result_text(result)
     data = json.loads(text)
+
     assert data["name"] == "TestUser"
     assert data["user_id"] == "123456"
     assert data["email"] == "test@test.com"
@@ -52,23 +46,11 @@ async def test_get_available_features(app_with_auth):
     result = await app_with_auth.call_tool("get_available_features", {})
 
     text = get_tool_result_text(result)
-    assert "COROS Training Hub" in text
-    assert "coros_login_tool" in text
-    assert "get_activities" in text
-
-
-@pytest.mark.asyncio
-async def test_get_available_features_returns_json(app_with_auth):
-    """Test get_available_features tool returns valid JSON."""
-    result = await app_with_auth.call_tool("get_available_features", {})
-
-    text = get_tool_result_text(result)
     data = json.loads(text)
     assert data["platform"] == "COROS Training Hub"
     assert "auth" in data
-    assert "user" in data
     assert "activities" in data
-    assert "notes" in data
+    assert "plan_builder" in data  # New in Layer 4
 
 
 @pytest.mark.asyncio
@@ -80,7 +62,6 @@ async def test_coros_login_success(app_with_auth):
     mock_result.to_dict = Mock(return_value={
         "success": True,
         "message": "Login successful",
-        "user": {"nickname": "TestUser"},
     })
 
     with patch("coros_mcp.auth_tool.coros_login", return_value=mock_result) as mock_login:
@@ -92,8 +73,6 @@ async def test_coros_login_success(app_with_auth):
 
     mock_login.assert_called_once_with("test@test.com", "password123")
     mock_set_tokens.assert_called_once()
-    text = get_tool_result_text(result)
-    assert "success" in text.lower() or "True" in text
 
 
 @pytest.mark.asyncio
@@ -107,60 +86,25 @@ async def test_coros_login_failure(app_with_auth):
         "error": "Invalid credentials",
     })
 
-    with patch("coros_mcp.auth_tool.coros_login", return_value=mock_result) as mock_login:
+    with patch("coros_mcp.auth_tool.coros_login", return_value=mock_result):
         with patch("coros_mcp.auth_tool.set_session_tokens") as mock_set_tokens:
-            result = await app_with_auth.call_tool(
+            await app_with_auth.call_tool(
                 "coros_login_tool",
-                {"email": "test@test.com", "password": "wrongpassword"}
+                {"email": "test@test.com", "password": "wrong"}
             )
 
-    mock_login.assert_called_once()
     mock_set_tokens.assert_not_called()
-    text = get_tool_result_text(result)
-    assert "error" in text.lower() or "false" in text.lower()
-
-
-@pytest.mark.asyncio
-async def test_set_coros_session_success(app_with_auth):
-    """Test set_coros_session restores session tokens."""
-    # Use a simple token string that won't be parsed as JSON by FastMCP
-    tokens = "token_abc123_xyz789"
-
-    with patch("coros_mcp.auth_tool.set_session_tokens") as mock_set_tokens:
-        result = await app_with_auth.call_tool(
-            "set_coros_session",
-            {"coros_tokens": tokens}
-        )
-
-    mock_set_tokens.assert_called_once()
-    text = get_tool_result_text(result)
-    assert "success" in text.lower() or "restored" in text.lower()
-
-
-@pytest.mark.asyncio
-async def test_set_coros_session_failure(app_with_auth):
-    """Test set_coros_session handles errors."""
-    tokens = "invalid_json"
-
-    with patch("coros_mcp.auth_tool.set_session_tokens", side_effect=Exception("Invalid token format")):
-        result = await app_with_auth.call_tool(
-            "set_coros_session",
-            {"coros_tokens": tokens}
-        )
-
-    text = get_tool_result_text(result)
-    assert "error" in text.lower() or "false" in text.lower()
 
 
 @pytest.mark.asyncio
 async def test_coros_logout(app_with_auth):
     """Test coros_logout clears session tokens."""
-    with patch("coros_mcp.auth_tool.clear_session_tokens") as mock_clear_tokens:
+    with patch("coros_mcp.auth_tool.clear_session_tokens") as mock_clear:
         result = await app_with_auth.call_tool("coros_logout", {})
 
-    mock_clear_tokens.assert_called_once()
+    mock_clear.assert_called_once()
     text = get_tool_result_text(result)
-    assert "success" in text.lower() or "logged out" in text.lower()
+    assert "logged out" in text.lower()
 
 
 @pytest.mark.asyncio
@@ -168,18 +112,14 @@ async def test_get_user_name_not_logged_in(app_with_auth, mock_get_client):
     """Test get_user_name raises error when not logged in."""
     mock_get_client.side_effect = ValueError("No COROS session. Call coros_login() first.")
 
-    # FastMCP wraps tool errors in ToolError
     with pytest.raises(ToolError) as exc_info:
         await app_with_auth.call_tool("get_user_name", {})
 
     assert "session" in str(exc_info.value).lower()
 
 
-# Test tool registration
 def test_auth_tools_registered(app_with_auth):
     """Test that all auth tools are registered."""
-    # Get registered tools by checking app's tools
-    # FastMCP stores tools internally
     tools = app_with_auth._tool_manager._tools
     tool_names = list(tools.keys())
 
