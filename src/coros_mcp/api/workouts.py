@@ -350,7 +350,7 @@ def _build_schedule_program(
         plan_distance = float(calc_result.get("planDistance", 0))
     except (TypeError, ValueError):
         plan_distance = 0.0
-    program["distance"] = f"{plan_distance / 1000:.2f}"
+    program["distance"] = f"{plan_distance:.2f}"
     program["duration"] = calc_result.get("planDuration", 0)
     program["trainingLoad"] = calc_result.get("planTrainingLoad", 0)
     program["pitch"] = calc_result.get("planPitch", 0)

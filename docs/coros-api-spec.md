@@ -20,7 +20,7 @@
   ```
   `result != "0000"` means error. Common: `"1030"` = invalid credentials.
 - **Date format:** COROS uses `YYYYMMDD` integers (e.g. `20260213`). MCP tools accept `YYYY-MM-DD` strings and convert.
-- **Distance:** API returns meters (or meters×1000 for pace). Display in km.
+- **Distance:** Activities/schedule return **meters**. Calculate/estimate/plan programs return **centimeters** (÷100). Pace = seconds×1000.
 
 ---
 

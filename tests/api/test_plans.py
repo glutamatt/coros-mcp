@@ -62,9 +62,9 @@ def test_get_plan(mock_plans):
         ],
         "programs": [
             {"idInPlan": "1", "name": "Easy Run", "sportType": 1,
-             "distance": 5000, "duration": 1800, "trainingLoad": 40, "exercises": []},
+             "distance": 500000, "duration": 1800, "trainingLoad": 40, "exercises": []},
             {"idInPlan": "2", "name": "Intervals", "sportType": 1,
-             "distance": 8000, "duration": 2700, "trainingLoad": 75, "exercises": []},
+             "distance": 800000, "duration": 2700, "trainingLoad": 75, "exercises": []},
         ],
     }
 
@@ -76,14 +76,16 @@ def test_get_plan(mock_plans):
     assert result["total_days"] == 28
     assert len(result["workouts"]) == 2
     assert result["workouts"][0]["day"] == 0
+    assert result["workouts"][0]["distance"] == "5.0 km"
     assert result["workouts"][1]["day"] == 3
+    assert result["workouts"][1]["distance"] == "8.0 km"
 
 
 @patch("coros_mcp.api.plans.sdk_plans")
 @patch("coros_mcp.api.plans.sdk_workouts")
 def test_create_plan(mock_workouts, mock_plans):
     mock_workouts.calculate_workout.return_value = {
-        "planDistance": 5000,
+        "planDistance": 500000,  # centimeters → 5 km
         "planDuration": 1800,
         "planTrainingLoad": 40,
         "planPitch": 0,
@@ -119,6 +121,8 @@ def test_create_plan(mock_workouts, mock_plans):
     assert len(add_payload["programs"]) == 2
     assert add_payload["entities"][0]["dayNo"] == 0
     assert add_payload["entities"][1]["dayNo"] == 3
+    # Distance should be passed through as raw centimeters
+    assert add_payload["programs"][0]["distance"] == "500000.00"
 
 
 @patch("coros_mcp.api.plans.sdk_plans")
@@ -140,7 +144,7 @@ def test_add_workout_to_plan(mock_workouts, mock_plans):
         "minWeeks": 1,
     }
     mock_workouts.calculate_workout.return_value = {
-        "planDistance": 8000, "planDuration": 2400, "planTrainingLoad": 60,
+        "planDistance": 800000, "planDuration": 2400, "planTrainingLoad": 60,
         "planPitch": 0, "exerciseBarChart": [],
     }
     mock_plans.update_plan.return_value = {"result": "0000"}

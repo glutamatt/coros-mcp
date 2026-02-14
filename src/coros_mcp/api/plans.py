@@ -56,7 +56,7 @@ def get_plan(client: CorosClient, plan_id: str) -> dict:
             "name": p.get("name"),
             "sport": get_sport_name(p.get("sportType", 0)),
             "day": entity.get("dayNo", 0),
-            "distance": format_distance(p.get("distance", 0)),
+            "distance": format_distance(_cm_to_m(p.get("distance", 0))),
             "duration": format_duration(p.get("duration", 0)),
             "training_load": p.get("trainingLoad"),
         }
@@ -128,7 +128,7 @@ def create_plan(
             plan_distance = float(calc_result.get("planDistance", 0))
         except (TypeError, ValueError):
             plan_distance = 0.0
-        program["distance"] = f"{plan_distance / 1000:.2f}"
+        program["distance"] = f"{plan_distance:.2f}"
         program["duration"] = calc_result.get("planDuration", 0)
         program["trainingLoad"] = calc_result.get("planTrainingLoad", 0)
         program["pitch"] = calc_result.get("planPitch", 0)
@@ -209,7 +209,7 @@ def add_workout_to_plan(
         plan_distance = float(calc_result.get("planDistance", 0))
     except (TypeError, ValueError):
         plan_distance = 0.0
-    program["distance"] = f"{plan_distance / 1000:.2f}"
+    program["distance"] = f"{plan_distance:.2f}"
     program["duration"] = calc_result.get("planDuration", 0)
     program["trainingLoad"] = calc_result.get("planTrainingLoad", 0)
     program["pitch"] = calc_result.get("planPitch", 0)
@@ -276,6 +276,14 @@ def delete_plans(client: CorosClient, plan_ids: list[str]) -> dict:
 
 
 # ── Internal helpers ────────────────────────────────────────────────────
+
+
+def _cm_to_m(value) -> float:
+    """Convert centimeters (plan/detail distance) to meters."""
+    try:
+        return float(value) / 100
+    except (TypeError, ValueError):
+        return 0.0
 
 
 def _build_calc_program(

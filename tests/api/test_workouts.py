@@ -63,6 +63,8 @@ def test_create_workout(mock_workouts, mock_training):
     mock_training.update_training_schedule.assert_called_once()
     payload = mock_training.update_training_schedule.call_args[0][1]
     assert payload["versionObjects"][0]["status"] == 1  # create
+    # Distance passed through as raw centimeters to API
+    assert payload["programs"][0]["distance"] == "1000000.00"
 
 
 @patch("coros_mcp.api.workouts.sdk_training")
