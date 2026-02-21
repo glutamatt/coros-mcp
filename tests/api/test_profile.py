@@ -24,8 +24,26 @@ def test_get_athlete_profile(mock_auth):
             "lthr": 165,
             "ltsp": 285,
             "ftp": 250,
-            "maxHrZone": [114, 133, 152, 171, 190],
-            "ltspZone": [400, 350, 300, 270, 240],
+            "maxHrZone": [
+                {"hr": 114, "index": 0, "ratio": 60.0},
+                {"hr": 133, "index": 1, "ratio": 70.0},
+                {"hr": 152, "index": 2, "ratio": 80.0},
+                {"hr": 171, "index": 3, "ratio": 90.0},
+                {"hr": 190, "index": 4, "ratio": 100.0},
+            ],
+            "ltspZone": [
+                {"index": 0, "pace": 400, "ratio": 70.0},
+                {"index": 1, "pace": 350, "ratio": 80.0},
+                {"index": 2, "pace": 300, "ratio": 90.0},
+                {"index": 3, "pace": 270, "ratio": 95.0},
+                {"index": 4, "pace": 240, "ratio": 100.0},
+            ],
+            "cyclePowerZone": [
+                {"index": 0, "power": 100, "ratio": 40.0},
+                {"index": 1, "power": 150, "ratio": 60.0},
+                {"index": 2, "power": 200, "ratio": 80.0},
+                {"index": 3, "power": 250, "ratio": 100.0},
+            ],
         },
     }
 
@@ -49,6 +67,10 @@ def test_get_athlete_profile(mock_auth):
     # Pace zones formatted
     assert len(result["pace_zones"]) == 5
     assert result["pace_zones"][0]["name"] == "Easy"
+
+    # Power zones formatted
+    assert len(result["power_zones"]) == 4
+    assert "W" in result["power_zones"][0]["range"]
 
 
 @patch("coros_mcp.api.profile.sdk_auth")

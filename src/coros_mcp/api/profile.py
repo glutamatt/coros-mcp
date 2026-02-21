@@ -45,20 +45,20 @@ def get_athlete_profile(client: CorosClient) -> dict:
         }),
     }
 
-    # HR zones
+    # HR zones — API returns [{"hr": 95, "index": 0, "ratio": 50.0}, ...]
     hr_zones = zone_data.get("maxHrZone") or zone_data.get("lthrZone")
-    if hr_zones:
+    if isinstance(hr_zones, list) and hr_zones:
         result["hr_zones"] = _format_hr_zones(hr_zones)
 
-    # Pace zones
+    # Pace zones — API returns [{"index": 0, "pace": 488, "ratio": 69.2}, ...]
     pace_zones = zone_data.get("ltspZone")
-    if pace_zones:
+    if isinstance(pace_zones, list) and pace_zones:
         result["pace_zones"] = _format_pace_zones(pace_zones)
 
-    # Power zones
+    # Power zones — API returns [{"index": 0, "power": 101, "ratio": 56.0}, ...]
     power_zones = zone_data.get("cyclePowerZone")
-    if power_zones:
-        result["power_zones"] = power_zones
+    if isinstance(power_zones, list) and power_zones:
+        result["power_zones"] = _format_power_zones(power_zones)
 
     return result
 
@@ -78,47 +78,63 @@ def _format_ltsp(ltsp) -> str:
     return format_pace(ltsp)
 
 
-def _format_hr_zones(boundaries: list) -> list[dict]:
-    """Format HR zone boundaries to named ranges.
+def _format_hr_zones(zones_raw: list) -> list[dict]:
+    """Format HR zone data to named ranges.
 
-    boundaries is [z1_max, z2_max, z3_max, z4_max, z5_max].
+    API returns [{"hr": 95, "index": 0, "ratio": 50.0}, ...] sorted by index.
     """
-    if not boundaries or len(boundaries) < 2:
-        return boundaries
-
+    sorted_zones = sorted(zones_raw, key=lambda z: z["index"] if isinstance(z, dict) else 0)
     zones = []
-    prev = 0
-    for i, upper in enumerate(boundaries):
+    prev_hr = 0
+    for i, entry in enumerate(sorted_zones):
+        hr = entry["hr"] if isinstance(entry, dict) else entry
         name = _HR_ZONE_NAMES[i] if i < len(_HR_ZONE_NAMES) else f"Zone {i+1}"
         if i == 0:
-            zones.append({"zone": i + 1, "name": name, "range": f"<{upper} bpm"})
+            zones.append({"zone": i + 1, "name": name, "range": f"<{hr} bpm"})
         else:
-            zones.append({"zone": i + 1, "name": name, "range": f"{prev}-{upper} bpm"})
-        prev = upper
-
+            zones.append({"zone": i + 1, "name": name, "range": f"{prev_hr}-{hr} bpm"})
+        prev_hr = hr
     return zones
 
 
-def _format_pace_zones(boundaries: list) -> list[dict]:
-    """Format pace zone boundaries to named ranges.
+def _format_pace_zones(zones_raw: list) -> list[dict]:
+    """Format pace zone data to named ranges.
 
-    boundaries is [z1_pace, z2_pace, ...] in sec/km (slower → faster).
+    API returns [{"index": 0, "pace": 488, "ratio": 69.2}, ...] in sec/km.
     """
-    if not boundaries or len(boundaries) < 2:
-        return boundaries
-
+    sorted_zones = sorted(zones_raw, key=lambda z: z["index"] if isinstance(z, dict) else 0)
     zones = []
-    for i, pace in enumerate(boundaries):
+    for i, entry in enumerate(sorted_zones):
+        pace = entry["pace"] if isinstance(entry, dict) else entry
         name = _PACE_ZONE_NAMES[i] if i < len(_PACE_ZONE_NAMES) else f"Zone {i+1}"
         pace_str = format_pace(pace)
         if i == 0:
             zones.append({"zone": i + 1, "name": name, "range": f"slower than {pace_str}"})
-        elif i == len(boundaries) - 1:
+        elif i == len(sorted_zones) - 1:
             zones.append({"zone": i + 1, "name": name, "range": f"faster than {pace_str}"})
         else:
-            prev_pace_str = format_pace(boundaries[i - 1])
-            zones.append({"zone": i + 1, "name": name, "range": f"{prev_pace_str} to {pace_str}"})
+            prev_pace = sorted_zones[i - 1]["pace"] if isinstance(sorted_zones[i - 1], dict) else sorted_zones[i - 1]
+            prev_str = format_pace(prev_pace)
+            zones.append({"zone": i + 1, "name": name, "range": f"{prev_str} to {pace_str}"})
+    return zones
 
+
+def _format_power_zones(zones_raw: list) -> list[dict]:
+    """Format power zone data to named ranges.
+
+    API returns [{"index": 0, "power": 101, "ratio": 56.0}, ...] in watts.
+    """
+    sorted_zones = sorted(zones_raw, key=lambda z: z["index"] if isinstance(z, dict) else 0)
+    zones = []
+    prev_power = 0
+    for i, entry in enumerate(sorted_zones):
+        power = entry["power"] if isinstance(entry, dict) else entry
+        name = f"Zone {i+1}"
+        if i == 0:
+            zones.append({"zone": i + 1, "name": name, "range": f"<{power}W"})
+        else:
+            zones.append({"zone": i + 1, "name": name, "range": f"{prev_power}-{power}W"})
+        prev_power = power
     return zones
 
 
