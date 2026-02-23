@@ -72,8 +72,8 @@ def format_pace(avg_pace: int) -> str:
     """
     if not avg_pace or avg_pace <= 0:
         return None
-    minutes = avg_pace // 60
-    secs = avg_pace % 60
+    minutes = int(avg_pace) // 60
+    secs = int(avg_pace) % 60
     return f"{minutes}:{secs:02d}/km"
 
 
